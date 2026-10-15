@@ -1,0 +1,19 @@
+{
+  "config": {
+    "bce_weight": 1.5,
+    "epochs": 120,
+    "lr": 0.0015,
+    "pos_weight_scale": 1.5,
+    "tune_thresholds": true
+  },
+  "data_version": "v2",
+  "method": "multitask_adapter_long",
+  "method_entry": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/model_pool/multitask_adapter_long/method.py",
+  "run_id": "run_v2_multitask_adapter_long",
+  "seed": 7,
+  "split": "test",
+  "task_slug": "iqa_rd",
+  "release_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/data/releases/v2",
+  "out_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/runs/run_v2_multitask_adapter_long",
+  "task_root": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment"
+}

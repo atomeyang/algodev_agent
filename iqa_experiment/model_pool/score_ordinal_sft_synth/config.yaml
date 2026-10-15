@@ -1,0 +1,15 @@
+{
+  "method": "score_ordinal_sft_synth",
+  "impl": "score_ordinal_sft.py",
+  "config": {
+    "use_synthetic": true,
+    "ensemble_seeds": 5,
+    "synth_defects": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "white_balance",
+      "flare"
+    ]
+  }
+}

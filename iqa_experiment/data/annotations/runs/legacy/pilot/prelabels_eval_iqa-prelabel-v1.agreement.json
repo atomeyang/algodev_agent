@@ -1,0 +1,59 @@
+{
+  "n_paired": 20,
+  "per_class": {
+    "blur": {
+      "precision": 0.25,
+      "recall": 0.2,
+      "f1": 0.2222,
+      "support": 5,
+      "tp": 1,
+      "fp": 3,
+      "fn": 4,
+      "tn": 12
+    },
+    "over_exp": {
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1": 0.8571,
+      "support": 6,
+      "tp": 6,
+      "fp": 2,
+      "fn": 0,
+      "tn": 12
+    },
+    "under_exp": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6667,
+      "support": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 1,
+      "tn": 18
+    },
+    "flare": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "tp": 0,
+      "fp": 4,
+      "fn": 0,
+      "tn": 16
+    },
+    "white_balance": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0,
+      "tp": 0,
+      "fp": 6,
+      "fn": 0,
+      "tn": 14
+    }
+  },
+  "severity_mae": 0.5,
+  "severity_n": 8,
+  "wb_direction_acc": null,
+  "wb_direction_n": 0
+}

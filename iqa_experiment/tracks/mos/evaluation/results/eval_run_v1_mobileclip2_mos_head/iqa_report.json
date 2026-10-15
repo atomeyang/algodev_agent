@@ -1,0 +1,65 @@
+{
+  "per_defect_f1": {
+    "blur": 0.0,
+    "over_exp": 0.0,
+    "under_exp": 0.0,
+    "flare": 0.0,
+    "white_balance": 0.0
+  },
+  "per_defect_precision": {
+    "blur": 0.0,
+    "over_exp": 0.0,
+    "under_exp": 0.0,
+    "flare": 0.0,
+    "white_balance": 0.0
+  },
+  "per_defect_recall": {
+    "blur": 0.0,
+    "over_exp": 0.0,
+    "under_exp": 0.0,
+    "flare": 0.0,
+    "white_balance": 0.0
+  },
+  "class_support": {
+    "blur": 0,
+    "over_exp": 0,
+    "under_exp": 0,
+    "flare": 0,
+    "white_balance": 0
+  },
+  "covered_defects": [],
+  "defect_macro_f1": 0.0,
+  "defect_macro_f1_cov": 0.0,
+  "hardcase_macro_f1": 0.0,
+  "hardcase_macro_f1_cov": 0.0,
+  "plcc": 0.8886,
+  "srcc": 0.8712,
+  "grade_agreement": 0.7464,
+  "n_labeled": 2015,
+  "n_matched": 2015,
+  "n_scored": 2015,
+  "gates": {
+    "plcc_ok": true,
+    "srcc_ok": true,
+    "grade_ok": true
+  },
+  "floors": {
+    "plcc": 0.85,
+    "srcc": 0.85,
+    "defect_macro_f1": 0.0,
+    "hardcase_macro_f1": 0.0,
+    "grade_agreement": 0.0
+  },
+  "quality_only": true,
+  "coverage_note": "real-MOS benchmark ships no defect annotations; defect Macro-F1 and hardcase gates are not applicable",
+  "pass": true,
+  "rom": {
+    "ok": true,
+    "rom_mb": 22.92,
+    "budget_mb": 60.0,
+    "headroom_mb": 37.08,
+    "basis": "params_fp16_estimate"
+  },
+  "rom_ok": true,
+  "rom_mb": 22.92
+}

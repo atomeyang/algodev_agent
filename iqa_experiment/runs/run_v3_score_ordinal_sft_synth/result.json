@@ -1,0 +1,42 @@
+{
+  "method": "score_ordinal_sft",
+  "split": "test",
+  "seed": 7,
+  "n_eval": 610,
+  "synthetic": false,
+  "device": "cpu",
+  "rom_params_millions": 0.0,
+  "rom": {
+    "ok": true,
+    "rom_mb": 0.0,
+    "budget_mb": 60.0,
+    "headroom_mb": 60.0,
+    "basis": "params_fp16_estimate"
+  },
+  "feature_dim": 82,
+  "n_train_real": 410,
+  "n_train_synth": 0,
+  "head": "score_reg",
+  "level_means": {
+    "0": 91.985,
+    "1": 66.0,
+    "2": 46.0,
+    "3": 28.0
+  },
+  "cv_plcc": {
+    "score_reg": 0.5388,
+    "level_reg": 0.5099,
+    "level_reg_et": 0.4969,
+    "ordinal_logit": 0.5131,
+    "level_cls": 0.5366
+  },
+  "cv_selection": {
+    "use_synthetic": false
+  },
+  "wall_clock_s": 37.6,
+  "metrics": {
+    "n_eval": 610
+  },
+  "note": "degradation-aware ordinal score head (subject-group CV selected, optional synthetic severity ladder from iqa_agent.tools.degrade; train-only, never applied to the frozen eval split)",
+  "status": "succeeded"
+}

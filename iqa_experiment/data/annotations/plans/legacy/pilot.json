@@ -1,0 +1,12 @@
+{
+  "kind": "legacy_annotation_import",
+  "task_slug": "iqa",
+  "prompt_version": "iqa-prelabel-v1",
+  "split": "eval",
+  "artifacts": [
+    "data/annotations/runs/legacy/pilot/prelabels_eval_iqa-prelabel-v1.jsonl",
+    "data/annotations/runs/legacy/pilot/prelabels_eval_iqa-prelabel-v1.agreement.json"
+  ],
+  "review_required": true,
+  "note": "Original outputs were preserved byte-for-byte. No original standalone scheme snapshot was supplied; this record is an index, not a reconstruction of the original prompt."
+}

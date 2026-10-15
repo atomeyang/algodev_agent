@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "recipe_id": "iqa_recipe_v1",
+  "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir).",
+  "source": "qaa_iqa_frozen_benchmark",
+  "transforms": [
+    "shortest_side_resize_256",
+    "bicubic",
+    "imagenet_free_normalisation(0/1)"
+  ],
+  "splits": {
+    "train": 0.75,
+    "val": 0.25
+  },
+  "seed": 7,
+  "augmentation": [],
+  "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method"
+}

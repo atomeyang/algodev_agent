@@ -1,0 +1,44 @@
+{
+  "method": "mobileclip2_mos_head",
+  "split": "test",
+  "seed": 7,
+  "n_dev": 8058,
+  "n_eval": 2015,
+  "synthetic": false,
+  "device": "cuda",
+  "benchmark": "koniq",
+  "feature_tag": "mobileclip2s0_mos_256",
+  "rom_params_millions": 11.4605,
+  "rom": {
+    "ok": true,
+    "rom_mb": 22.92,
+    "budget_mb": 60.0,
+    "headroom_mb": 37.08,
+    "basis": "params_fp16_estimate"
+  },
+  "features_prebuilt": true,
+  "head": {
+    "head": "ridge",
+    "alpha": 0.1,
+    "val_plcc_grid": {
+      "0.003": 0.89037,
+      "0.01": 0.89049,
+      "0.03": 0.89073,
+      "0.1": 0.8911,
+      "0.3": 0.89101,
+      "1.0": 0.88776
+    },
+    "val_plcc_best": 0.8911
+  },
+  "score_range_pred": [
+    6.554928638139131,
+    87.79351215912396
+  ],
+  "wall_clock_s": 2.1,
+  "metrics": {
+    "n_dev": 8058,
+    "n_eval": 2015
+  },
+  "note": "frozen MobileCLIP2-S0 features + light MOS head (real human MOS)",
+  "status": "succeeded"
+}

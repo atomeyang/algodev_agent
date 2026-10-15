@@ -1,0 +1,46 @@
+{
+  "status": "pending",
+  "plan_id": "p001",
+  "plan_hash": "4913b81778e266e8e4eb2eecd4f03be5a43a71ec82901e2d0962c68c98e23e13",
+  "scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "mobileclip2_v7_score",
+      "score_moe"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [],
+    "parameter_space": {
+      "mobileclip2_v7_score": {},
+      "score_moe": {
+        "use_metadata": false,
+        "ensemble_seeds": 3,
+        "cv_folds": 4,
+        "blend_step": 0.1
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v1",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 0,
+      "max_fix_attempts": 3,
+      "max_experiments": 24,
+      "max_epochs": 200,
+      "max_wall_clock_s": 5400.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 4,
+      "max_iterations": 4
+    },
+    "max_iterations": 4,
+    "approval_mode": "scoped_auto"
+  }
+}

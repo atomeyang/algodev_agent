@@ -1,0 +1,1 @@
+method=mobileclip2_mos_head metrics={'n_dev': 8058, 'n_eval': 2015}

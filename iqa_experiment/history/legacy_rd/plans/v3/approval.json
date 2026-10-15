@@ -1,0 +1,46 @@
+{
+  "status": "pending",
+  "plan_id": "p003",
+  "plan_hash": "e9d93eb8dc6f8cc07d2a3f39d0f29b3e936acdc8616dab792287c2923287b835",
+  "scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "multitask_adapter_balanced"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [],
+    "parameter_space": {
+      "multitask_adapter_balanced": {
+        "epochs": 60,
+        "lr": 0.0012,
+        "bce_weight": 2.5,
+        "pos_weight_scale": 2.0,
+        "max_pos_weight": 40.0,
+        "dropout": 0.25
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v3",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 0,
+      "max_fix_attempts": 3,
+      "max_experiments": 24,
+      "max_epochs": 200,
+      "max_wall_clock_s": 5400.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 4,
+      "max_iterations": 4
+    },
+    "max_iterations": 4,
+    "approval_mode": "scoped_auto"
+  }
+}

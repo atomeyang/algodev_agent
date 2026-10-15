@@ -1,0 +1,28 @@
+schema_version: "1.0"
+budget:
+  max_research_calls: 3
+  max_coding_calls: 4
+  max_fix_attempts: 3
+  max_experiments: 24
+  max_epochs: 200
+  max_wall_clock_s: 3600
+  max_cloud_tokens: 400000
+  max_no_improve: 4
+  max_iterations: 6
+logging:
+  exchange_events: true
+  emit_event_seq: true
+approval:
+  default_mode: scoped_auto
+  require_hash: true
+upload_policy:
+  default: restricted
+  max_read_bytes: 262144
+  allowed_suffixes: [".md", ".txt", ".json", ".yaml", ".yml", ".py", ".csv", ".tex", ".bib"]
+providers:
+  cloud: deepseek
+  local: qwen_local
+  coding: codex
+stop_rules:
+  require_all_hard_constraints: true
+  min_metric_delta: 0.0

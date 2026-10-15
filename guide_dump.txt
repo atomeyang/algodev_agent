@@ -1,0 +1,281 @@
+[Title] 算法研发 Agent 的 Codex 开发指导
+[Subtitle] 指导文件 v1.2  |  对应自主子 Agent 架构 v0.4  |  2026 年 10 月 8 日
+[Normal] 本文件可直接作为 Codex 的开发任务说明。目标是实现用户可通过对话 CLI 驱动的算法研发 Agent，并交付能够运行、恢复、归档和验收的程序。当前已有设计文档，没有已实现的 CLI 或运行系统。本文中的命令、接口和模块名称是待开发规范。
+[Heading 1] 1 开发任务与范围
+[Normal] 在 agentic_algorithm 内开发。LangGraph 管理流程，LangChain 或独立适配器接入模型，Codex 等编程工具实现仓库修改。云端模型负责复杂调研、设计、思考、规划与改进方向；本地大模型辅助资料处理、标注和诊断。Runner 实际运行数据构建、训练和搜索，Evaluator 独立计算结果。
+[Normal] 必须覆盖需求解析、任务目录创建、来源可追溯的研究、模型与数据方案、用户确认、执行计划、编程归档、数据版本、模型版本、评测、外部问题输入、迭代优化和 DOCX 记录。迭代目标是满足业务验收条件，执行同时受预算和停止规则约束。
+[Heading 2] 实施默认与可调整条件
+[Normal] 首版支持单机单用户，优先在 Linux 环境验收。采用 Python 3.11 或以上，使用 pyproject.toml 和锁定依赖；安装时检查当前 LangGraph、Codex 和模型服务接口，不写死未经验证的版本。GPU 不是运行 CLI 和离线演示的前提。
+[Normal] 首个离线演示使用确定种子的微型表格回归数据，基线及两个轻量方法在 CPU 上运行；只验证系统链路，结果标明 synthetic_demo，不能宣称验证了图像、语音或真实业务能力。业务插件与训练框架按需扩展。
+[Heading 2] Codex 的执行要求
+[Normal] 先读取本文件及现有方案、版本说明、状态记录，检查仓库和执行环境，再按里程碑开发。遇到可逆的实现选择自行推进；缺少凭证或数据时使用明确标记的离线模式，并记录真实接入的阻塞项。不要只输出代码片段或空壳接口，也不能伪造调研、训练、费用或验收结果。
+[Normal] 遵守现有 AGENTS.md。对用户指定的方案确认保留人工入口。不要让开发用 Codex 与运行时 Codex 相互递归调用；运行时任务应有深度和次数上限。
+[Heading 1] 2 CLI 实现与交互规范
+[Normal] 推荐 Typer 管独立命令，prompt_toolkit 管交互输入，Rich 管结果与事件展示。交互输入支持中文、多行粘贴、历史和命令补全；采用单一输出调度，后台事件不能打断正在编辑的输入。不要同时让多个 Live 界面直接争抢终端输出。
+[Normal] CLI 是轻量客户端。FastAPI 加 Uvicorn 提供本机控制服务，默认仅绑定 127.0.0.1；本地凭证文件限制访问，凭证不写入命令历史。训练和图执行位于独立 worker。关闭客户端不停止后台任务；服务离线时给出可执行的启动说明。
+--- TABLE ---
+命令示例 | 要求实现的行为
+algo-agent --root ./agentic_algorithm init | 幂等创建平台目录和默认配置；保留已有文档。
+algo-agent service start | 启动独立控制服务与 worker；打印端点和健康状态。
+algo-agent chat | 交互创建任务或选择已有任务。
+algo-agent chat --task task_001 | 重新连接任务，显示当前阶段及等待确认事项。
+algo-agent status --task task_001 | 读取本地状态，不调用云端；支持 --json。
+algo-agent approve --task task_001 --plan p001 --hash DIGEST | 仅批准指定计划内容；过期哈希拒绝。
+algo-agent feedback --task task_001 --model m002 --file feedback.json | 登记外部问题证据并进入诊断队列。
+algo-agent pause 或 resume --task task_001 | 请求边界暂停或恢复图执行。
+algo-agent cancel --task task_001 --job job_003 | 取消指定运行；不删除已保存资产。
+algo-agent export --task task_001 --format docx | 按快照生成任务总览和单次报告。
+--- END TABLE ---
+[Normal] 除 init 示例外，命令也应接受全局 --root；未指定时从配置或当前项目推导，不能依赖固定绝对路径。增加 help、doctor、tasks list、events、budget、plan show、service status 与 service stop。
+[Heading 1] 3 对话语义与长任务控制
+[Heading 2] 自然语言与明确命令并存
+[Normal] 用户可输入“设计一个去噪算法，输入输出为 RGB，部署包不超过 8MB”，也可输入“夜间细节损失严重，先分析数据退化问题”。系统归类为新需求、需求修订、反馈、询问或方案确认。状态、预算和资产路径查询优先本地处理；复杂设计调用云端。
+[Normal] 交互命令至少包括 /new、/use、/status、/plan、/approve、/feedback、/pause、/resume、/cancel、/budget、/export、/help 和 /quit。命令参数复用同一契约与服务接口，不另写一套业务逻辑。文件使用 /attach PATH 登记成引用，绝不默认读取和上传任意目录。
+[Normal] 自然语言“确认”仅在唯一待确认计划存在时显示该计划 ID、摘要和哈希，并由明确确认动作提交。包含“确认”“执行”的普通讨论不能通过关键词误启动训练。首次计划确认之后，批准范围内的自动运行不逐次询问。
+[Heading 2] 用户输入与运行隔离
+[Normal] 每条输入生成 command_id，记录 task_id、conversation_id、时间、意图和预期状态版本。后台运行中的修订默认排队，下一安全边界处理；若要求立即停止，应显式取消或暂停。正在运行的作业继续绑定原代码、数据与配置版本。
+[Normal] 每个任务只有一个状态写入者，多个客户端使用状态版本的比较更新避免冲突。conversation_id 不等于 task_id；线程与任务的映射需要登记，不能把所有任务塞进一个全局聊天历史。
+[Heading 2] 终端生命周期
+[Normal] Ctrl+C 在输入时清空当前输入，显示时脱离等待；不隐式杀死训练。/quit 或 Ctrl+D 关闭客户端。/pause 阻止新步骤启动，当前作业按适配器能力完成或保存检查点后暂停；/cancel 才请求终止。取消不支持续训时明确提示。
+[Normal] 后台进程退出后，重启需要协调图状态、作业注册表和实际进程。仅凭 PID 不判断作业存活，应核对启动标识、心跳和资产状态；丢失的作业进入待处理状态，不能默认成功或重复运行。
+[Heading 2] 事件反馈
+[Normal] 展示当前任务、阶段、迭代、预算、运行 ID 与下一步。控制服务返回带递增 event_seq 的持久化事件；客户端断线后按序号补读。先实现轮询，保留可替换为 SSE 的接口，不把高频训练日志逐条打印到对话流。
+[Heading 1] 4 工程目录与模块边界
+--- TABLE ---
+相对 agentic_algorithm 的位置 | 核心文件或职责
+docs/ | 本指导文件；系统方案、版本说明和状态均使用 DOCX。
+agent_runtime/src/algo_agent/cli/ | main.py、chat.py、commands.py、render.py、client.py。
+agent_runtime/src/algo_agent/service/ | app.py、controller.py、events.py；处理请求与持久化。
+agent_runtime/src/algo_agent/graph/ | state.py、builder.py、nodes/、routing.py。
+agent_runtime/src/algo_agent/ | schemas/、storage/、providers/、evidence/、docs_export/。
+coding_runtime/ 与 evidence_runtime/ | 编程任务与结果；证据来源、补读、摘要、差异和缓存。
+local_largemodel/<model_id>/ | weights 或引用、serving、configs、adapters；每个本地模型独立。
+execution_runtime/ 与 algorithm_plugins/ | worker、Runner、资源和作业登记；业务插件与方法适配器。
+shared_assets/ 与 runtime_state/ | 复用资产；数据库、检查点、事件、缓存和调用账本。
+<task_name>_experiment/ | 单个算法业务任务的完整资产与研发记录。
+--- END TABLE ---
+[Normal] 项目级 pyproject.toml、锁文件、README、tests 和启动入口放在根目录或按单一可安装包组织。模块间通过明确接口调用，不能依赖工作目录或修改 sys.path 来运行。依赖锁、源代码与模板使用 Git；原始数据、权重和缓存不进普通 Git。
+[Heading 2] 任务目录的必需内容
+[Normal] 根目录：task.yaml 和 OVERVIEW.docx。plans/<version>：需求快照、proposal.docx、execution.yaml、release_notes.docx、approval.json。model_pool/<method>：完整方法代码或固定来源、配置、初始权重和环境。
+[Normal] data：raw、recipes、splits、releases/<version>/train、val、test，以及 DATASET.docx、数据迭代文档。coding_records：编程归档。runs：运行清单、日志和检查点。model_versions：模型清单。evaluation：协议、脚本和 results。feedback：外部问题证据。docs/research 与 docs/iterations：单次报告。deliverables：最终版本。
+[Normal] 规范化 task_slug，并防止路径穿越、同名覆盖和输出到根目录之外；已有任务必须显式选择恢复或新建。大文件可用引用，但引用需要可解析且带校验和。
+[Heading 1] 4.1 LangGraph 实现位置
+[Normal] 平台代码与任务实验目录同级。LangGraph 流程源码由本项目维护；官方 LangGraph 和 LangChain 作为锁定依赖安装，不复制框架源码。流程节点只承担阶段交接和控制，研究与编程子 Agent 保留内部自主循环。
+--- TABLE ---
+相对 agentic_algorithm 的位置 | 职责
+agent_runtime/src/algo_agent/graph/ | state.py 状态和更新规则；builder.py 建图与编译；routing.py 条件路由；checkpoints.py 检查点适配；nodes/ 阶段节点。
+agent_runtime/src/algo_agent/agents/ | research_design.py 研究设计循环；codex_coding.py 编程任务调度与交接。
+agent_runtime/src/algo_agent/service/ | controller.py 处理启动、批准、暂停、恢复和用户命令。
+agent_runtime/src/algo_agent/schemas/ 与 storage/ | 统一契约、资产登记和事务接口；其他 runtime 调用这些接口。
+agent_runtime/configs/ | workflow.yaml 流程默认配置；provider、预算与上传策略。
+runtime_state/ | 检查点数据库、事件、作业、会话映射、资产索引及账本；不存放流程源码。
+--- END TABLE ---
+[Heading 2] 节点与外部模块
+[Normal] nodes/ 包含 intake、research、design_plan、approval、coding、experiments、evaluation、analysis、feedback 和 export_docs。coding_runtime 提供 Codex 工具适配；execution_runtime 提供作业和资源执行；evidence_runtime 提供证据读取。Evaluator 使用冻结协议独立计算结果。
+[Normal] 共享组件源码放 algorithm_plugins/common/，业务专用实现放 algorithm_plugins/<domain>/；可复用配置、方案和资产引用放 shared_assets/。同一组件只有一个规范实现，任务方法池通过版本引用复用，避免多份源码漂移。
+[Heading 1] 5 数据契约与控制 API
+[Normal] 使用 Pydantic 校验输入输出。数据结构必须携带 schema_version。ID 与文件名分开，时间使用带时区的 ISO 格式，内部统一 UTC，用户界面按 Asia/Shanghai 展示。
+--- TABLE ---
+契约 | 必需信息
+TaskSpec | 业务、输入输出、目标硬件、精度、硬约束、主指标及门槛、预算、未知项。
+PlanSpec | 父计划、证据引用、候选、假设、对照、数据配方、评测协议、执行 DAG、修改范围、成本与停止规则。
+Approval 与 Command | task_id、plan_id、plan_hash、批准范围；command_id、幂等键和 expected_state_version。
+DatasetManifest | 原始样本清单、标注、划分、配方、代码、种子、校验和与授权使用范围。
+CodingTask 与 CodingResult | 基线 commit、工作区、写入范围、验收命令；diff、验证结果、工具版本与归档引用。
+ExperimentSpec | 方法、代码、数据、配置、环境、种子、计划及假设；输入资产版本全部解析固定。
+ModelManifest 与 EvalResult | 权重和导出资产；协议、评测数据、总体指标、切片、资源、失败引用与验收结果。
+Feedback 与 EvidencePacket | 关联模型、来源、样例、预期实际、复现条件；指标差异、反例、不确定项与可补读引用。
+--- END TABLE ---
+[Heading 2] 本机 API 的最小范围
+[Normal] 实现 POST /tasks、POST /tasks/{id}/commands、GET /tasks/{id}/state、GET /tasks/{id}/events?after=SEQ、GET /tasks/{id}/plans/{plan_id}、POST /tasks/{id}/approvals、POST /tasks/{id}/feedback、GET /jobs/{job_id} 和 GET /health。长操作返回 command_id 或 job_id，不阻塞 HTTP 等待训练。
+[Normal] 本地命令必须完成持久化后才返回已接受。错误包含代码、说明和恢复办法；状态冲突返回冲突结果，不覆盖。CLI --json 模式只输出机器可读结果，进度走 stderr；退出码区分成功、参数错误、冲突、服务异常与未达标。
+[Normal] 硬约束标明单位和测量口径。未知的目标硬件或门槛阻止最终达标声明，不阻止研究。ROM 是否包含程序与运行库、MACs 与 FLOPs、平均延迟与 P95 等必须显式定义。
+[Heading 1] 6 LangGraph 研发流程
+[Normal] 实现节点：intake、research、design_plan、approval_gate、prepare_assets、coding、submit_experiments、collect_results、evaluate、analyze、decide、export_docs。外部反馈先进入 diagnose_feedback，再接 design_plan。节点返回结构化状态更新，长作业只提交与查询。
+[Heading 2] 研究与方案质量
+[Normal] 实际 ResearchProvider 检索论文、官方材料和仓库。每条证据保存 URL、访问时间、出处、commit、权重、许可、数据和评测条件、原文定位及可信度。无搜索服务时支持导入用户资料，并标记资料范围；不能将模拟来源当作真实调研。
+[Normal] 报告解释不同方案原理，给出开源实现链接和可比条件。公开报告效果、本地高容量参考和业务约束内最优结果分开。数据或口径不同的结果不能直接排成统一榜单；缺少复现证据时标记未验证。
+[Normal] 云端同时考虑模型、训练数据、退化增强、评测与部署，不只搜索模型名。候选通常为一至三种，包含基线、预期收益、成本、失败条件和关键消融。计划批准后冻结内容哈希。
+[Heading 2] 人工确认与恢复
+[Normal] approval_gate 使用 LangGraph interrupt，恢复使用 Command(resume=...)。采用持久化 checkpointer，首版选择当前版本支持的 SQLite 实现。interrupt 节点保持纯净，不在它前面提交训练或修改不可逆资产。批准请求由控制层核对任务、计划哈希和状态版本后恢复图。
+[Normal] 图状态至少包含 task_id、plan_id、iteration、stage、pending_approval、feedback_ids、coding_job_id、run_ids、model_ids、eval_ids、best_feasible_model、budget_used、stop_reason。权重、数据、长日志和全量对话不进入检查点。
+[Heading 2] 结束条件
+[Normal] 控制决策检查主指标、硬约束、关键切片回归及最终验收。未达标且预算内时继续；达到试验次数、GPU 时间、云端预算、无提升次数上限时停止新提交，保留最优可行候选。没有可行候选则明确说明原因。临时失败有限重试，配置或业务问题转待输入。
+[Normal] 任务阶段与运行状态分开：任务为 draft、researching、awaiting_input、awaiting_approval、executing、analyzing、paused、accepted、stopped 或 failed；作业为 queued、running、succeeded、failed、cancel_requested 或 cancelled。不能用一项 status 混合描述。
+[Heading 1] 7 编程工具与作业执行
+[Heading 2] 运行时 Codex 接入
+[Normal] 定义 CodingExecutor 接口。第一版封装安装的 Codex CLI，通过 argv 数组启动，不使用拼接 shell。为每个任务创建隔离 worktree 或代码快照，传入 CodingTaskSpec。按官方文档核实 codex exec、workspace-write、JSONL 事件及 output-schema 参数。认证由工具配置负责，凭证不归档。
+[Normal] 工具仅允许修改批准的方法实现和配置。执行账号将原始数据、独立验收数据和冻结评测协议置为只读；结束后检查实际 diff，并由外层独立运行验收。协议确需修改时新建版本和确认，不能通过修改指标来获得达标。
+[Normal] coding_records/<coding_id> 保存可见任务与响应、工具和模型标识、基线版本、归档事件、diff、变更文件、依赖锁、验证命令及退出码、费用与未解决问题。过滤密钥等敏感值；不要求记录不可见的内部推理。
+[Heading 2] Runner 和幂等提交
+[Normal] Runner 实现 submit、status、collect、cancel 与 capabilities。提交通过持久化幂等键唯一登记，生成确定的 job_id 与专用目录。状态提交和待执行请求使用事务及可恢复队列，worker 获取租约后执行；恢复时先对账实际作业与产物，再决定是否重试。
+[Normal] 对“已提交外部作业但登记未完成”等窗口，通过幂等外部请求或可查询作业标识恢复。不能仅凭 LangGraph 检查点宣称副作用恰好执行一次。每个运行的输入清单不可变，父运行和改进假设明确。
+[Normal] 训练进程单独运行，有资源上限、超时、日志、检查点、心跳和退出码。控制服务不使用 FastAPI 临时后台任务承担长训练。Runner 不继承不必要的云端凭证。缓存和模型服务占用的 GPU 资源也需计入调度。
+[Heading 2] 候选登记与晋升
+[Normal] 模型先登记 candidate，清单绑定代码、数据、配置、环境、种子、训练运行、父模型、权重哈希和导出信息。冻结评测通过后原子更新推荐指针。旧权重和结果保留，不能覆盖 best.pt 来代替版本管理。
+[Heading 1] 8 数据 评测与外部问题
+[Heading 2] 数据管理
+[Normal] raw 对执行进程只读。数据更新创建新的 release，绑定来源、标注、配方、划分、构建代码、种子和哈希。train、val、test 可由实际文件或样本引用组成，格式由插件定义。DVC 可选用于大资产管理，首版至少实现校验清单和来源追踪。
+[Normal] 增强前完成划分，必要时按主体、设备、场景或时间隔离。近重复样本不能跨集合。在线增强记录随机规则和状态；评测输入确定。标注辅助模型与配置也属于数据版本依赖，并有抽样质检结果。
+[Heading 2] 独立评测
+[Normal] Evaluator 输出 metrics.json、切片表、资源结果、失败引用和 analysis.docx。主指标计算由冻结代码执行，模型解释结果。调优使用训练与验证集；最终测试集独立，测试反馈参与改进后不再将其称为未见验收集。
+[Normal] ROM 按约定资产范围测量；理论计算量记录输入尺寸、精度和计数口径；RAM 与延迟记录硬件、运行时、batch、预热、测量次数及统计。没有目标硬件实测时报告部分完成，不能伪造数值或宣布全部达标。
+[Heading 2] 外部反馈入口
+[Normal] 用户可对话描述、附本地样例或提交 feedback.json。记录模型版本、场景、预期与实际、来源、严重程度、复现方式、测评条件及上传范围。不知道模型版本时列出候选并明确确认归属，不默认为最新模型。
+[Normal] 本地诊断区分模型能力、数据覆盖、预处理、量化导出、运行配置和评测口径。构建针对性开发回归集；云端根据证据制定可检验假设和计划。不能复现则记录 missing_evidence，并给出需要补充的信息。
+[Normal] 每轮同时检查新问题切片、历史回归集和总体指标。优先控制回归，必要时多种候选做对照；“当前反馈改善”不等于“总体业务达标”。反馈到达正在运行的任务时登记队列，在安全边界开始新计划。
+[Heading 1] 9 云端设计质量与成本控制
+[Normal] 将云端调用分成研究设计、复杂评测分析、运行时编程三类。本地查询和文档状态生成不消耗云端 Token。初始 provider 配置支持云端设计服务、本地辅助模型和编程工具三种独立适配，实际模型标识可配置。
+[Normal] 按用户方案配置 DeepSeek Flash 与本地 Qwen3.8-27B。DeepSeek 保留请求标识及服务返回信息，部署时核对 deepseek-v4-flash 与当前推荐名称的映射；本地模型通过可配置端点接入。doctor 检查模型能力和版本，不假定工具调用或结构化输出完全兼容。
+[Heading 2] 证据包和定向补读
+[Normal] EvidencePacket 包含冻结需求、当前计划摘要、预算、基线 ID、指标变化、关键切片、代表失败、反例、资源瓶颈、不确定项和待决问题。给来源索引和摘要，云端通过受限 read_evidence(ref, range) 读取必要片段。原始数据、完整日志和整个仓库默认不上传。
+[Normal] 用于代码实现的源码和依赖应按任务需要提供给编程工具，其云端读入也计入成本与上传范围。不能只限制设计模型而让编程工具上传全部数据。附件按引用登记，必要样例经选择后上传；范围控制必须在工具层执行。
+[Heading 2] 批量实验与触发规则
+[Normal] 云端一次给出若干假设、搜索空间和消融安排，本地执行多次试验。批次结束、重大回归、停滞、新外部问题或证据冲突时调用云端；普通日志和每个训练 epoch 不触发。后续只传相对明确基线的变化，但保留理解变化所需的上下文。
+[Normal] 缓存键含需求、证据、模型标识、提示词版本、代码、数据和评测协议；依赖变化使相应缓存失效。不能把不同业务条件下的旧方案作为新设计。摘要保留少数重要反例，避免本地压缩造成单向证据偏差。
+[Heading 2] 预算账本
+[Normal] 调用前预留估算预算，调用后按真实 usage 结算，区分 input、output、缓存和可计费推理 Token。供应商缺项时标记 unknown 或 estimated；不能算成零。费用按服务币种记录，并保存计价版本；若展示人民币，转换依据必须明确。
+[Normal] 限制设计调用次数、编程修复次数、输出长度、上下文大小、试验数、墙钟时间和 GPU 时间。并发作业提交时预留资源额度，避免多个任务同时耗尽预算。超限进入预算停止状态，允许用户调整预算并产生可追踪的新计划。
+[Heading 1] 10 自主子 Agent 的具体实现
+[Normal] 实现两个核心单元：ResearchDesignAgent 与 CodexCodingAgent。LangGraph 在任务边界调用它们，不能将每次工具调用或编辑都强制拆成外层节点。DeepSeek 加检索、补读和分析工具构成自主研究单元，Codex 适配器保留其内部读代码、修改、验证和修复循环。
+--- TABLE ---
+模块或接口 | 必须实现
+ResearchDesignAgent.run(request) | 接收 ResearchDesignRequest；循环检索与补读，返回结构化 ResearchDesignResult。
+CodexCodingAgent.submit(task) | 接收 CodingTaskSpec；提交隔离编程任务，返回可恢复作业和会话 ID。
+AgentInvocation | 记录 task_id、role、invocation_id、plan_id、session_id、预算和归档引用。
+AgentResult | 状态为 completed、needs_plan_change、blocked 或 failed；含资产、验证、费用及变更请求。
+SessionRegistry | 登记角色和任务会话，与父计划和基线版本关联；不使用全局共享长对话。
+--- END TABLE ---
+[Heading 2] 研究单元的执行循环
+[Normal] 工具包括 search_sources、read_evidence、get_run_summary、get_code_excerpt 和 request_local_diagnosis。先接收需求与证据索引，再自主选择必要补读；结果包含来源覆盖、候选比较、PlanSpec、反例、缺失证据和关键消融。工具调用数量、时间、读取量和 Token 有上限。
+[Normal] 结构化输出校验失败时有限修复；保留失败原文和原因。检索不可用时转资料导入或 blocked，不伪装研究成功。只读取授权引用；云端需要更多证据时返回具体引用和范围，工具执行后继续同一研究任务。
+[Heading 2] 编程单元的自主性
+[Normal] 输入完整编程目标和冻结验收条件。允许 Codex 在写入范围内自行调试；外层检查实际 diff 与独立验收结果。没有改变计划语义的实现修复可在同一会话继续；换基线、换目标或超范围时创建变更请求。单元不能递归启动同类 Agent。
+[Heading 1] 11 三种循环与批准范围控制
+--- TABLE ---
+循环 | 约束与返回
+研发决策 | 负责假设、方案和跨方法选择，按批次或新反馈调用研究单元。返回批准、待输入、继续或停止。
+编程修复 | 由 Codex 内部执行，限制时间、短测试资源和修复次数；返回可运行版本或方案变更请求。
+批量实验 | Runner 执行搜索空间与消融，限制试验数和资源；批次汇总后再进入研发决策。
+--- END TABLE ---
+[Heading 2] ApprovalScope 契约
+[Normal] 字段包括 allowed_methods、allowed_data_sources、allowed_recipe_changes、parameter_space、write_paths、evaluation_protocol_id、upload_policy、resource_budget、max_iterations 和 approval_mode。approval_mode 支持 scoped_auto 与 per_iteration；默认首次确认具体范围。
+[Normal] 实现 validate_scope(plan, approval)，以结构化比较校验候选、配方、数据、预算和协议。代码内容哈希变化并非一律要求重批：允许的实现修复属于原范围；需求、协议、数据来源或资源范围变化必须产生新批准。决策不能交给模型用一句“仍在范围内”代替。
+[Heading 2] 变更请求和反馈
+[Normal] change_request 包含原因、受影响约束、旧新字段、证据、预计成本和 suggested_next_action。LangGraph 收到后进入研究规划，展示可审查新计划，确认后再提交。用户在运行中输入反馈，只新增事件与队列，不修改已提交实验配置。
+[Heading 2] 减少规划调用的可验证行为
+[Normal] 离线端到端用例安排一批多配置实验。统计编程单元调用和规划调用，确认普通参数试验及 epoch 不触发新研究；复杂外部反馈触发新的研究和计划。测试基于实际事件，不把预期计数硬编码成运行结果。
+[Normal] 每层分别记录调用、时间、资源、失败和停止原因，并统一汇总任务账本。不能用外层剩余预算掩盖内层无界修复，也不能让一个角色擅自提高另一角色预算。
+[Heading 1] 12 证据服务与角色交接
+[Normal] evidence_runtime 提供 EvidenceStore、PacketBuilder、EvidenceReader、DeltaBuilder 和 DependencyCache。入口暴露 register_source、build_packet、read_evidence(ref, range)、compare_runs 与 invalidate_by_dependency。脚本、云端和本地模型都通过它交换有来源的证据。
+--- TABLE ---
+记录 | 必需字段
+EvidenceRef | evidence_id、URI、来源定位、版本、校验和、适用范围与上传规则。
+EvidencePacket | task_id、plan_id、基线 ID、需求、指标变化、切片、失败、反例、未知项和引用。
+ReadAudit | 角色、调用、引用、请求与实际范围、上传大小、状态和用量。
+Handoff | from_role、to_role、目标、输入资产 ID、验收条件、预算和父调用。
+--- END TABLE ---
+[Heading 2] 按需补读与审计
+[Normal] EvidenceReader 检查引用是否属于当前任务或获准共享资产，限制范围、文件类型和大小；正文定位失败时返回错误，不自动上传整个文件。packet 只含必要结构化统计及代表证据。允许云端补读重要反例、原文和源码，保证压缩不损害设计判断。
+[Normal] 编程工作区与资料读取工具同样执行上传边界，原始数据及冻结最终测试资产不暴露给编程云端。可读代码、配置和必要开发样例由计划范围指定。授权与上传范围检查在工具实现中执行，不仅写进提示词。
+[Heading 2] 缓存与交接语义
+[Normal] 缓存键包含需求、证据、代码、数据、评测、模型标识及提示词版本；记录依赖关系，变更时使相应条目失效。handoff 保存摘要和引用，不复制完整角色历史。会话复用时仍验证当前基线与计划，不把会话记忆当作可信版本事实。
+[Heading 2] 新增验收
+[Normal] 测试子 Agent 能在预算内多次调用工具；范围外变更能返回规划；补读越界被拒；关键反例能按引用补读；会话按任务角色隔离；每个候选的计划、编程、数据、模型和评测引用可追溯。无真实凭证时验证适配器契约，但真实能力验收仍保持待完成。
+[Heading 1] 12.1 资产登记与方案契约
+[Normal] 实现 AssetRegistry 于现有 storage 层，数据库放 runtime_state/。新增能力沿用 schemas、service 和插件接口；不用再创建资产专用顶层 runtime。平台代码保持一个规范实现，shared_assets 保存版本化配方、清单和引用。
+--- TABLE ---
+接口或契约 | 要求
+AssetRegistry | register、get、search、publish、deprecate、resolve_dependencies；资产版本不可变，发布与索引事务一致。
+AssetManifest | asset_id、asset_version、asset_type、schema_version、source_task、artifact_refs、checksums、dependencies、license、upload_policy、validation_status、validated_at。
+RecipeSpec | 输入输出、适用分布、前置条件、方法、数据配方、参数、代码环境、权重、评测协议、设备、结果区间、失败边界与证据引用。
+CompatibilityResult | compatible、adaptation_required、incompatible 或 unknown；逐项列原因、缺项、待适配内容和验证动作。
+ReproductionManifest | 资产依赖闭包、锁文件、数据与权重引用、seed、执行和评测入口、预期结果及容差。
+--- END TABLE ---
+[Heading 2] 物理位置与状态
+[Normal] 组件源码放 algorithm_plugins/common/ 或 <domain>/。shared_assets 下仅增加 recipes、datasets、models、evaluation 和 knowledge；每个资产以 <asset_id>/<version> 管理，DOCX 和 YAML/JSON 使用同一事实源。模型池依赖固定版本，不复制可变的共享源码。
+[Normal] 状态 researched → reproduced → business_validated → reusable 必须附真实验证记录；允许不满足时停留原状态。publish 校验依赖可解析、授权适用、接口测试与复现结果；不能由模型一句判断直接晋级。失败经验记录具体条件、置信度与反例。
+[Heading 1] 12.2 复用和最小复现流程
+[Normal] 新需求解析后先本地检索资产登记，再向研究 Agent 提供候选摘要和证据引用。每个候选由确定性检查器比较明确字段；业务分布等无法自动判定的条件标记 unknown，交由研究与补充实验验证。缓存只保存检查结果，不免除新任务的批准与评测。
+[Heading 2] 执行步骤
+[Normal] 1 检索匹配资产，检查输入输出、硬约束、设备、数据来源、许可证与依赖版本。2 形成兼容性结果；需要调整时创建新 recipe 版本及当前任务计划。3 冻结依赖闭包，在隔离环境复现。4 使用当前任务协议评测并记录新 run_id、model_id、eval_id。5 验证有效后按发布要求沉淀新资产，更新总览和复用记录。
+[Heading 2] 最小复现包
+[Normal] 实现 export_reproduction 与 validate_reproduction。manifest 关联代码 commit、环境锁、参数、seed、数据划分、权重哈希、运行及评测命令、测量条件和容差。引用缺失、许可证限制或硬件不符时输出具体阻塞；包内不保存密钥、私有最终测试样本或未授权原始数据。
+[Normal] 对可解析远程或外部引用明确可用性要求；仅有哈希不能恢复文件。离线演示使用随包小数据和 CPU 方法；真实业务包按数据授权提供引用或受控转移，两者输出状态分开。
+[Heading 2] 必须验收的用例
+--- TABLE ---
+场景 | 通过标准
+跨任务复用 | 任务 B 解析任务 A 发布资产的确切版本并产生独立运行记录，A 的历史结果不变。
+条件不兼容 | 硬件、输入格式或授权不匹配时拒绝直接执行；unknown 不能直接晋级为兼容。
+依赖变化 | 创建新版本，旧引用仍解析到旧版本；相关兼容性缓存失效。
+复现与引用失败 | 按声明容差验证实际结果；缺失文件明确报错，不用模拟结果补齐。
+失败经验复用 | 输出适用条件与证据，不将单次失败自动扩展为所有任务结论。
+--- END TABLE ---
+[Heading 1] 12.3 迁移实现与验收
+[Normal] 首版实现跨目录或跨机器的阶段边界迁移，不承诺迁移活跃 GPU 进程和供应商会话。迁移能力通过可重复的包导出、导入、验证和新环境执行证明。
+--- TABLE ---
+实现入口 | 行为要求
+export_task_bundle | 生成 manifest、资产依赖闭包、代码配置、文档和哈希；按授权打包或保留外部引用，过滤凭证。
+import_task_bundle | 检查 schema、哈希、许可证和缺失项；映射本地路径，保留来源 ID，记录目标环境和导入事件；同名不覆盖。
+migrate_state | 版本化数据库和图状态迁移；备份后执行，失败回退；不同 graph 版本不得盲目恢复。
+provider conformance | 更换研究模型、Codex 适配或 Runner 时验证接口、结构化输出、用量、超时、取消与恢复。
+--- END TABLE ---
+[Heading 2] 迁移后执行
+[Normal] 导入结果区分 ready、missing_dependencies、unsupported_state 与 failed。在新环境创建新运行并关联 source_run_id；旧实验清单保持不变。新设备重新测量资源指标，未测量标记 unknown；不能沿用旧延迟宣称新硬件达标。
+[Heading 2] 开发顺序与测试
+[Normal] M2 增加资产清单和登记接口以及本地复现包；M3 完成真实 provider 接口一致性检查；M4 验证跨任务方案复用；M5 完成迁移、状态升级、授权和故障回退。先保证单任务闭环，再增加上述能力；不引入多用户资产平台或分布式训练。
+[Normal] 测试包含变换工作目录后的路径解析、包内路径穿越拒绝、哈希损坏、缺失外部引用、重复导入幂等、版本不支持、导入冲突、迁移失败回退以及新环境执行。CPU 演示实际完成跨目录导入和运行；真实跨设备验收单独记录，未执行保持待验证。
+[Heading 2] v1.2 开发要求
+[Normal] 在原有启动指令基础上，实现本节 AssetRegistry、RecipeSpec、兼容性检查、复现包和迁移接口，遵循第 4.1 节 LangGraph 源码布局。完成后更新系统 DOCX 版本说明和状态；证据、文档与数据库一致。当前文档是实施规范，并不表示这些模块已开发。
+[Heading 1] 13 开发里程碑与完成证据
+--- TABLE ---
+阶段 | 必须完成与验证
+M0 可安装骨架 | 命令入口、doctor、目录生成、契约、数据库迁移、配置与结构化错误；init 重复执行不覆盖已有文档。
+M1 对话控制 | CLI 输入与服务分离，历史和事件补读；单任务写入控制；计划显示、批准、暂停、恢复和反馈可用。
+M2 离线闭环 | 以明确模拟研究输入及真实 CPU 演示运行完成计划、批准、方法池、数据版、模型版、评测与报告。
+M3 真实工具 | 接入实际云端、本地服务、搜索与 Codex；独立测试各适配器，缺少配置时准确报阻塞。
+M4 问题驱动迭代 | 外部反馈 → 复现回归用例 → 新方案 → 代码修改 → 新模型 → 对照评测，完成一轮证据链。
+M5 恢复与交付 | 故障恢复、预算、上传范围、文档一致性与真实业务插件验收；给运行说明和开发状态。
+--- END TABLE ---
+[Normal] 逐阶段实现并提交可审查的代码和验证结果。M0 至 M2 必须能够在没有云端凭证和 GPU 的环境中运行，但离线输出要显式标记；M3 至 M5 的真实验收不能由模拟测试替代。真实数据或凭证缺失时继续完成独立工作，并留下最小待接入清单。
+[Heading 2] 实现和测试要求
+[Normal] 编写有意义的 pytest 测试，覆盖批准失效、幂等提交、数据不可变、反馈版本归属、预算控制与恢复；不要用只检查函数返回某个常量的测试代替功能验收。提供脚本化端到端演示和确定随机种子。
+[Normal] 采用最少必要依赖，不先实现多用户平台或分布式训练。模块接口允许替换数据库、Runner、云端模型和业务插件；按单机真实链路验证后扩展。网络与凭证失败应可诊断，并避免重复计费请求的无界重试。
+[Heading 2] 交付代码说明
+[Normal] README 包含安装、配置、服务启动、交互示例、独立命令、离线模式、真实接入、恢复、暂停取消语义和常见问题。提供 .env.example 或凭证配置示例，但不能包含真实密钥。依赖锁、环境诊断与测试报告一并交付。
+[Heading 1] 14 必需验收用例
+--- TABLE ---
+场景 | 可观察的通过标准
+新建需求 | 自然语言生成正确任务目录；关键缺项保持未知并给出补充请求。
+计划微调 | 旧批准哈希失效；过期客户端批准被拒绝；范围内试验不重复询问。
+终端退出 | /quit 后后台作业仍在；重新 chat 可读到相同任务和新事件。
+服务崩溃 | 在提交前后故障注入，恢复时对账；不重复提交同一幂等作业。
+数据更新 | 原始数据写入被拒；生成新 release；旧运行仍解析到旧版本。
+编程归档 | 有实际 diff、命令与结果；越界修改或更改冻结协议被拒绝。
+外部问题 | 反馈绑定正确模型；无法复现不伪造结果；回归用例进入新计划。
+Token 与上传 | 状态查询零云端调用；全量日志和原始数据不默认上传；关键反例可补读。
+预算超限 | 新提交停止；真实消耗可查；缺少 usage 明确标记未知。
+验收诚实 | CPU 演示标记 synthetic_demo；缺硬件实测时不能报告全部达标。
+文档一致性 | DOCX 版本、指标、事件序号与对应快照一致，引用能够解析。
+--- END TABLE ---
+[Heading 2] DOCX 自动记录要求
+[Normal] 系统方案版本、版本说明和 agent_status.docx 保存在根 docs。任务总览保存在任务根；单次研究和改进报告保存在该任务 docs。结构化事件与资产清单是运行事实来源，程序按模板生成 DOCX，云端只生成必要的研究与分析正文。
+[Normal] 所有 DOCX 使用可读中文字体和标准段落、表格。导出后检查内容一致性，并在具备渲染环境时生成页面图检查排版。缺渲染环境时报告未完成视觉验收，不能宣称已验证。版本文件保留历史，当前状态文件可更新。
+[Heading 1] 15 交给 Codex 的启动方式
+[Normal] 将本文件放在开发项目的 agentic_algorithm/docs 下，或直接附给 Codex。支持文件读取的 Codex 应先用 python-docx 提取段落和表格，按文档顺序阅读；也可由使用者从 Word 复制全文。不得只读取标题或忽略表格里的验收要求。
+[Heading 2] 可直接使用的开发指令
+[Normal] 请读取 agentic_algorithm/docs/codex_development_guide_v1.2.docx，并检查现有 agent_architecture_design_v0.4.docx、版本说明、状态及 AGENTS.md。根据指导实现算法研发 Agent，先完成 M0 至 M2 的可运行离线闭环，再接入 M3 的真实工具。实现 ResearchDesignAgent 与 CodexCodingAgent，保留内部自主循环；按研发、编程、批量实验三层控制，增加证据服务和范围批准；实现对话 CLI、任务恢复、编程归档、数据和模型版本、固定评测、外部反馈、Token 预算和 DOCX 自动记录。
+[Normal] 先输出短开发计划，然后实际修改项目、安装必要依赖、执行测试和演示，并继续完成 M4 至 M5。遇到缺少凭证、GPU 或真实业务数据时，不伪造结果；继续完成可独立验证的部分，记录真实接入和业务验收的阻塞项。每个阶段更新系统 DOCX 状态与版本说明，记录代码 commit、验证命令、实际结果和下一步。
+[Heading 2] 实现后应能执行的验收入口
+[Normal] algo-agent --root ./agentic_algorithm init
+[Normal] algo-agent --root ./agentic_algorithm doctor
+[Normal] algo-agent --root ./agentic_algorithm service start
+[Normal] algo-agent --root ./agentic_algorithm demo --offline
+[Normal] algo-agent --root ./agentic_algorithm chat --task demo_task
+[Normal] 以上为要求开发的命令，不表示当前已经可以执行。demo 应展示创建、批准、CPU 运行、一次反馈迭代、模型登记和文档导出，并打印产物路径与真实运行 ID。
+[Heading 2] 官方参考与文档定位
+[Normal] prompt_toolkit：https://python-prompt-toolkit.readthedocs.io/en/master/pages/asking_for_input.html
+[Normal] Typer：https://typer.tiangolo.com/   Rich：https://rich.readthedocs.io/en/stable/live.html
+[Normal] FastAPI：https://fastapi.tiangolo.com/   LangGraph：https://docs.langchain.com/oss/python/langgraph/interrupts
+[Normal] Codex：https://learn.chatgpt.com/docs/non-interactive-mode
+[Normal] 本文件是开发规范 v1.2，对应设计 v0.4 的自主子 Agent 与执行细节；不是已完成的软件发布或业务验收报告。

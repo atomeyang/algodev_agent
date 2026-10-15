@@ -1,0 +1,1 @@
+method=multitask_adapter metrics={'val_macro_f1': 0.7041, 'val_plcc': 0.5203}

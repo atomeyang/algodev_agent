@@ -1,0 +1,732 @@
+{
+  "task_id": "iqa_rd",
+  "root": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd",
+  "phase": "analyzing",
+  "stop_reason": null,
+  "best_model_id": "m_mobileclip2_v7_score",
+  "iterations": 3,
+  "trace": [
+    {
+      "iteration": 1,
+      "runs": [
+        {
+          "model_id": "m_measure_threshold",
+          "run_id": "run_v1_measure_threshold",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.2508,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.4195,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.4051,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_mobileclip2_v7_score",
+          "run_id": "run_v1_mobileclip2_v7_score",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.5459,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.4338,
+            "rom_mb": 23.36,
+            "rom_ok": 1.0,
+            "srcc": 0.4305,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_multitask_adapter",
+          "run_id": "run_v1_multitask_adapter",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.3806,
+            "defect_macro_f1_cov": 0.4758,
+            "f1_blur": 0.5366,
+            "f1_flare": 0.7059,
+            "f1_over_exp": 0.3043,
+            "f1_under_exp": 0.3563,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.4197,
+            "hardcase_macro_f1": 0.5495,
+            "hardcase_macro_f1_cov": 0.6869,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.3163,
+            "rom_mb": 23.08,
+            "rom_ok": 1.0,
+            "srcc": 0.3357,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "runs": [
+        {
+          "model_id": "m_multitask_adapter_long",
+          "run_id": "run_v2_multitask_adapter_long",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.323,
+            "defect_macro_f1_cov": 0.4037,
+            "f1_blur": 0.5429,
+            "f1_flare": 0.4,
+            "f1_over_exp": 0.3256,
+            "f1_under_exp": 0.3465,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.4672,
+            "hardcase_macro_f1": 0.5507,
+            "hardcase_macro_f1_cov": 0.6883,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.3039,
+            "rom_mb": 23.08,
+            "rom_ok": 1.0,
+            "srcc": 0.3118,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "runs": [
+        {
+          "model_id": "m_multitask_adapter_balanced",
+          "run_id": "run_v3_multitask_adapter_balanced",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.3139,
+            "defect_macro_f1_cov": 0.3924,
+            "f1_blur": 0.5828,
+            "f1_flare": 0.3158,
+            "f1_over_exp": 0.322,
+            "f1_under_exp": 0.3488,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.4918,
+            "hardcase_macro_f1": 0.5348,
+            "hardcase_macro_f1_cov": 0.6685,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.3231,
+            "rom_mb": 23.08,
+            "rom_ok": 1.0,
+            "srcc": 0.3201,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "kind": "task.created",
+      "level": "info",
+      "message": "task iqa_rd created (slug=iqa_rd)"
+    },
+    {
+      "kind": "stage.intake",
+      "level": "info",
+      "message": "requirement parsed; unknowns=3"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 1: 3 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 1: 3 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p001 (v1) proposed; hash=9538ecba33a2"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p001"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p001 approved (hash 9538ecba33a2)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v1 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 3 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 3 experiment jobs for p001"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 3 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_measure_threshold: defect_macro_f1=0.424 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_mobileclip2_v7_score: defect_macro_f1=0.424 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_multitask_adapter: defect_macro_f1=0.3806 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 2"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary (stop)"
+    },
+    {
+      "kind": "stage.export_docs",
+      "level": "info",
+      "message": "task overview and iteration report regenerated"
+    },
+    {
+      "kind": "stage.intake",
+      "level": "info",
+      "message": "requirement parsed; unknowns=3"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 1: 3 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 1: 3 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p001 (v1) proposed; hash=cb095c57150f"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p001"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p001 approved (hash cb095c57150f)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v1 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 3 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 3 experiment jobs for p001"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 3 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_measure_threshold: defect_macro_f1=0.424 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_mobileclip2_v7_score: defect_macro_f1=0.424 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_multitask_adapter: defect_macro_f1=0.3806 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 2"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 2: 1 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 2: 1 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p002 (v2) proposed; hash=ba0367d4cb12"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p002"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p002 approved (hash ba0367d4cb12)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v2 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 1 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 1 experiment jobs for p002"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 4 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_multitask_adapter_balanced: defect_macro_f1=0.3139 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 3"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary (stop)"
+    },
+    {
+      "kind": "stage.export_docs",
+      "level": "info",
+      "message": "task overview and iteration report regenerated"
+    },
+    {
+      "kind": "stage.intake",
+      "level": "info",
+      "message": "requirement parsed; unknowns=3"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 1: 3 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 1: 3 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p001 (v1) proposed; hash=763dcc895c86"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p001"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p001 approved (hash 763dcc895c86)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v1 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 3 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 3 experiment jobs for p001"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 3 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_measure_threshold: defect_macro_f1=0.424 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_mobileclip2_v7_score: defect_macro_f1=0.424 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_multitask_adapter: defect_macro_f1=0.3806 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 2"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 2: 1 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 2: 1 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p002 (v2) proposed; hash=e042bd5d7138"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p002"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p002 approved (hash e042bd5d7138)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v2 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 1 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 1 experiment jobs for p002"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 4 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_multitask_adapter_long: defect_macro_f1=0.323 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 3"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 3: 1 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 3: 1 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p003 (v3) proposed; hash=e9d93eb8dc6f"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p003"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p003 approved (hash e9d93eb8dc6f)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v3 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 1 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 1 experiment jobs for p003"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 5 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_multitask_adapter_balanced: defect_macro_f1=0.3139 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 4"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary (stop)"
+    },
+    {
+      "kind": "stage.export_docs",
+      "level": "info",
+      "message": "task overview and iteration report regenerated"
+    }
+  ]
+}

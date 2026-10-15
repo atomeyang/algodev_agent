@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "task_slug": "iqa",
+  "members": {
+    "iqa_mos": "tracks/mos",
+    "iqa_rd": "history/legacy_rd"
+  },
+  "relocations": {
+    "iqa_annotations": "data/annotations/runs/legacy/pilot",
+    "iqa_mos_experiment": "tracks/mos",
+    "iqa_rd/iqa_rd_experiment": "history/legacy_rd",
+    "iqa_rd/iqa_run_summary.json": "history/legacy_rd/iqa_run_summary.json",
+    "iqa_rd": "history/legacy_rd/legacy_platform",
+    "docs/iqa_run_report.md": "docs/iqa_run_report.md"
+  }
+}

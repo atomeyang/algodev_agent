@@ -1,0 +1,616 @@
+{
+  "task_id": "iqa",
+  "root": "/mnt/data/yangt/codes/QAA/algo_agent",
+  "task_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment",
+  "task_slug": "iqa",
+  "phase": "analyzing",
+  "stop_reason": null,
+  "best_model_id": "m_score_moe_meta",
+  "iterations": 3,
+  "trace": [
+    {
+      "iteration": 1,
+      "runs": [
+        {
+          "model_id": "m_mobileclip2_v7_score",
+          "run_id": "run_v1_mobileclip2_v7_score",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.5492,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.4441,
+            "rom_mb": 23.36,
+            "rom_ok": 1.0,
+            "srcc": 0.4385,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_score_moe",
+          "run_id": "run_v1_score_moe",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.6016,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.6525,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.6626,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "runs": [
+        {
+          "model_id": "m_mobileclip2_v7_score",
+          "run_id": "run_v1_mobileclip2_v7_score",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.5492,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.4441,
+            "rom_mb": 23.36,
+            "rom_ok": 1.0,
+            "srcc": 0.4385,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_score_moe",
+          "run_id": "run_v1_score_moe",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.6016,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.6525,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.6626,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_score_moe_meta",
+          "run_id": "run_v2_score_moe_meta",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.6197,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.6703,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.6823,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "runs": [
+        {
+          "model_id": "m_mobileclip2_v7_score",
+          "run_id": "run_v1_mobileclip2_v7_score",
+          "env": "local_gpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.5492,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.4441,
+            "rom_mb": 23.36,
+            "rom_ok": 1.0,
+            "srcc": 0.4385,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_score_moe",
+          "run_id": "run_v1_score_moe",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.6016,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.6525,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.6626,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_score_moe_meta",
+          "run_id": "run_v2_score_moe_meta",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.6197,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.6703,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.6823,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        },
+        {
+          "model_id": "m_score_ordinal_sft_synth",
+          "run_id": "run_v3_score_ordinal_sft_synth",
+          "env": "local_cpu",
+          "metrics": {
+            "defect_macro_f1": 0.424,
+            "defect_macro_f1_cov": 0.53,
+            "f1_blur": 0.5674,
+            "f1_flare": 0.0,
+            "f1_over_exp": 0.8811,
+            "f1_under_exp": 0.6714,
+            "f1_white_balance": 0.0,
+            "grade_agreement": 0.5246,
+            "hardcase_macro_f1": 0.5188,
+            "hardcase_macro_f1_cov": 0.6485,
+            "n_labeled": 610.0,
+            "n_matched": 610.0,
+            "n_scored": 610.0,
+            "plcc": 0.6089,
+            "rom_mb": 22.92,
+            "rom_ok": 1.0,
+            "srcc": 0.6165,
+            "support_blur": 150.0,
+            "support_flare": 9.0,
+            "support_over_exp": 75.0,
+            "support_under_exp": 75.0,
+            "support_white_balance": 0.0
+          },
+          "passed": false,
+          "failures": [
+            "plcc_ok",
+            "srcc_ok",
+            "defect_ok",
+            "defect_ok_covered",
+            "hardcase_ok",
+            "grade_ok"
+          ]
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "kind": "task.created",
+      "level": "info",
+      "message": "task iqa created (slug=iqa)"
+    },
+    {
+      "kind": "stage.intake",
+      "level": "info",
+      "message": "requirement parsed; unknowns=3"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 1: 2 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 1: 2 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p001 (v1) proposed; hash=4913b81778e2"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p001"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p001 approved (hash 4913b81778e2)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v1 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 2 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 2 experiment jobs for p001"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 2 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_mobileclip2_v7_score: plcc=0.4441 passed=False"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_score_moe: plcc=0.6525 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 2"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 2: 1 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 2: 1 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p002 (v2) proposed; hash=c62acc923640"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p002"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p002 approved (hash c62acc923640)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v2 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 1 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 1 experiment jobs for p002"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 3 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_score_moe_meta: plcc=0.6703 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 3"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary"
+    },
+    {
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 3: 1 candidates"
+    },
+    {
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 3: 1 candidates, status=completed"
+    },
+    {
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p003 (v3) proposed; hash=5d14fab9336b"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at approval_request"
+    },
+    {
+      "kind": "command.approval",
+      "level": "info",
+      "message": "approval accepted for p003"
+    },
+    {
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p003 approved (hash 5d14fab9336b)"
+    },
+    {
+      "kind": "stage.prepare_assets",
+      "level": "info",
+      "message": "dataset iqa_dual_output:v3 built ({'dev': 410, 'eval': 610})"
+    },
+    {
+      "kind": "stage.coding",
+      "level": "info",
+      "message": "coding complete for 1 methods"
+    },
+    {
+      "kind": "stage.submit_experiments",
+      "level": "info",
+      "message": "submitted 1 experiment jobs for p003"
+    },
+    {
+      "kind": "stage.collect_results",
+      "level": "info",
+      "message": "collected 4 runs (0 not succeeded)"
+    },
+    {
+      "kind": "stage.evaluate",
+      "level": "info",
+      "message": "m_score_ordinal_sft_synth: plcc=0.6089 passed=False"
+    },
+    {
+      "kind": "stage.analyze",
+      "level": "info",
+      "message": "failures=5"
+    },
+    {
+      "kind": "stage.decide",
+      "level": "info",
+      "message": "targets not met; continuing to iteration 4"
+    },
+    {
+      "kind": "boundary",
+      "level": "info",
+      "message": "waiting at iteration_boundary"
+    },
+    {
+      "kind": "control.continue",
+      "level": "info",
+      "message": "continuing from iteration boundary (stop)"
+    },
+    {
+      "kind": "stage.export_docs",
+      "level": "info",
+      "message": "task overview and iteration report regenerated"
+    }
+  ]
+}

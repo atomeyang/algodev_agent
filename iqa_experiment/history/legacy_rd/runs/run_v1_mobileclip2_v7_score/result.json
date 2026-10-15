@@ -1,0 +1,28 @@
+{
+  "method": "mobileclip2_v7_score",
+  "split": "test",
+  "seed": 7,
+  "n_eval": 610,
+  "synthetic": false,
+  "device": "cuda",
+  "rom_params_millions": 11.679,
+  "rom": {
+    "ok": true,
+    "rom_mb": 23.36,
+    "budget_mb": 60.0,
+    "headroom_mb": 36.64,
+    "basis": "params_fp16_estimate"
+  },
+  "ckpt": "/mnt/data/yangt/codes/QAA/iqa_agent/models/iqa_adapter_v7/best.pt",
+  "ckpt_info": {
+    "has_lora": true,
+    "n_missing": 0,
+    "n_unexpected": 0
+  },
+  "wall_clock_s": 71.7,
+  "metrics": {
+    "n_eval": 610
+  },
+  "note": "trained MobileCLIP2-S0 adapter score + measurement defect head (reproduction baseline)",
+  "status": "succeeded"
+}

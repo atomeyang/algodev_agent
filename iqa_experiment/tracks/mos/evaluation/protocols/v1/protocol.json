@@ -1,0 +1,23 @@
+{
+  "protocol_id": "iqa_koniq_v1",
+  "dataset_version": "v1",
+  "primary_metric": "plcc",
+  "direction": "max",
+  "quality_only": true,
+  "defects": [
+    "blur",
+    "over_exp",
+    "under_exp",
+    "flare",
+    "white_balance"
+  ],
+  "min_class_support": 5,
+  "floors": {
+    "plcc": 0.85,
+    "srcc": 0.85
+  },
+  "rom_budget_mb": 60.0,
+  "frozen": true,
+  "label_semantics": "real human MOS (KonIQ-10k), official train/val/test split",
+  "scores_source": "koniq10k_mos"
+}

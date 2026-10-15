@@ -1,0 +1,24 @@
+{
+  "config": {
+    "alphas": [
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.3,
+      1.0
+    ],
+    "head": "ridge",
+    "image_size": 256
+  },
+  "data_version": "v1",
+  "method": "mobileclip2_mos_head",
+  "method_entry": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_mos_experiment/model_pool/mobileclip2_mos_head/method.py",
+  "run_id": "run_v1_mobileclip2_mos_head",
+  "seed": 7,
+  "split": "test",
+  "task_slug": "iqa_mos",
+  "release_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_mos_experiment/data/releases/v1",
+  "out_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_mos_experiment/runs/run_v1_mobileclip2_mos_head",
+  "task_root": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_mos_experiment"
+}

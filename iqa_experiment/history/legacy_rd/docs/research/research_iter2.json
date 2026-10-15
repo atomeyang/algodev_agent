@@ -1,0 +1,106 @@
+{
+  "report_markdown": "# IQA research & design (iteration 2)\n\n> OFFLINE MODE: no live literature search or cloud model was used. Candidates and thresholds come from the local IQA workspace + the requirement report; all results are labelled with their real provenance (frozen pseudo-MOS benchmark).\n\n## Business objective\n轻量双输出 IQA 模型研发：ROM < 60MB fp16，输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；缺陷 Macro-F1 >= 0.85，PLCC/SRCC >= 0.90，分档一致率 >= 0.90，hardcase Macro-F1 >= 0.85，参考 iqa_agent 的冻结基准与 MobileCLIP2-S0 方案。\n\n## Hard constraints\n- ROM < 60 MB fp16 (deployment drops the text tower)\n- dual output: 0-100 quality score + 5 defect multi-labels (blur/over_exp/under_exp/flare/white_balance)\n\n## Acceptance floors\n- defect Macro-F1 >= 0.85  (primary)\n- PLCC >= 0.9, SRCC >= 0.9, hardcase Macro-F1 >= 0.85, grade agreement >= 0.9\n\n## Frozen evaluation reality check\n- eval positives: blur 150, over_exp 75, under_exp 75, flare 9, **white_balance 0**\n- the all-class Macro-F1 is therefore capped at 0.8 even with perfect F1 on the other four classes; the report also tracks `defect_macro_f1_cov` over classes with support.\n\n## Candidates\n- **multitask_adapter_long** (finetune+regularised): Multi-task adapter with a longer schedule and mixed score/defect loss to improve score PLCC while holding defect F1. (expected gain: improves score ranking + hardcase F1; cost: ~6 min GPU)\n\n## Weak classes flagged this iteration\n- blur, under_exp, flare",
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "multitask_adapter_long",
+      "method": "multitask_adapter_long",
+      "family": "finetune+regularised",
+      "description": "Multi-task adapter with a longer schedule and mixed score/defect loss to improve score PLCC while holding defect F1.",
+      "expected_gain": "improves score ranking + hardcase F1",
+      "cost_estimate": "~6 min GPU",
+      "failure_conditions": [
+        "longer training may overfit the small dev split"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    }
+  ],
+  "hypotheses": [
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: blur, under_exp, flare.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1.",
+    "Class-balanced BCE + threshold tuning recovers rare-class recall without regressing the frequent classes."
+  ],
+  "controls": [
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "counterexamples": [
+    "flare positives are only 9 in eval -> wide confidence interval",
+    "pseudo-MOS is quantised, so PLCC has a low ceiling"
+  ],
+  "unknowns": [
+    "white_balance unmeasurable on the frozen eval (0 positives)",
+    "on-device latency not measured"
+  ],
+  "evidence_refs": [
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/benchmark",
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/registry/baseline.json",
+    "IQA轻量双输出模型选型与数据集构建深度调研报告.docx"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v2",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir).",
+    "source": "qaa_iqa_frozen_benchmark",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method"
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v2",
+    "primary_metric": "defect_macro_f1",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v2",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params."
+  },
+  "cost": {
+    "cloud_tokens": 0,
+    "currency": "USD",
+    "source": "offline"
+  },
+  "status": "completed",
+  "offline": true,
+  "tool_calls": [
+    {
+      "tool": "search_sources",
+      "refs": 0,
+      "used_search_service": false,
+      "note": "offline mode: no live search service configured; using local plugin material only"
+    },
+    {
+      "tool": "build_packet",
+      "refs": 0
+    },
+    {
+      "tool": "search_sources",
+      "offline": true,
+      "refs": 0
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+schema_version: "1.0"
+# LangGraph workflow defaults. TaskSpec may explicitly override these limits.
+budget:
+  max_research_calls: 3          # research-design agent invocations per task
+  max_coding_calls: 4            # coding-unit invocations per task
+  max_fix_attempts: 3            # inner repair loops inside one coding unit
+  max_experiments: 24            # total runner jobs per task
+  max_epochs: 200
+  max_wall_clock_s: 3600
+  max_cloud_tokens: 400000
+  max_no_improve: 4              # consecutive iterations without improvement before stop
+  max_iterations: 6
+  max_research_steps: 8         # model/tool steps inside each research invocation
+  max_candidates: 3
+  max_data_operations: 24
+  max_added_samples: 10000
+  max_annotation_samples: 1000
+logging:
+  exchange_events: true
+  emit_event_seq: true
+approval:
+  default_mode: scoped_auto      # scoped_auto | per_iteration
+  require_hash: true
+upload_policy:
+  default: restricted            # restricted | summary_only | open
+  max_read_bytes: 262144
+  allowed_suffixes: [".md", ".txt", ".json", ".yaml", ".yml", ".py", ".csv", ".tex", ".bib"]
+providers:
+  cloud: deepseek
+  local: qwen_local
+  coding: codex
+stop_rules:
+  require_all_hard_constraints: true
+  min_metric_delta: 0.0

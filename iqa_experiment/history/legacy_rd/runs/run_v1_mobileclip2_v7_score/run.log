@@ -1,0 +1,2 @@
+[LoRA] Applied to 4 Linear layers, r=16, alpha=16
+method=mobileclip2_v7_score metrics={'n_eval': 610}

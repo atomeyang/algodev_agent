@@ -1,0 +1,18 @@
+{
+  "config": {
+    "blend_step": 0.05,
+    "cv_folds": 4,
+    "ensemble_seeds": 4,
+    "use_metadata": true
+  },
+  "data_version": "v2",
+  "method": "score_moe_meta",
+  "method_entry": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/model_pool/score_moe_meta/method.py",
+  "run_id": "run_v2_score_moe_meta",
+  "seed": 7,
+  "split": "test",
+  "task_slug": "iqa",
+  "release_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/data/releases/v2",
+  "out_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/runs/run_v2_score_moe_meta",
+  "task_root": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment"
+}

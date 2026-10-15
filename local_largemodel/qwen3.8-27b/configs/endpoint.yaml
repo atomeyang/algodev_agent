@@ -1,0 +1,17 @@
+# qwen3.8-27b 本地端点配置（不含任何密钥；仅本机回环地址）
+model_id: qwen3.8-27b
+provider: openai_compatible
+base_url: http://127.0.0.1:8084/v1
+api_key: sk-local
+modalities: [text, image]
+context_length: 8192
+# 标注任务需要确定性输出：temperature=0、关闭采样随机性
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 2048
+# 注意：该模型是推理型（reasoning），content 可能为空、思考过程在 reasoning_content；
+# 标注脚本必须给足 max_tokens（>=2048），否则会截断在思考阶段拿不到最终 JSON。
+notes:
+  served_by: llama.cpp llama-server
+  endpoint_health: GET /v1/models

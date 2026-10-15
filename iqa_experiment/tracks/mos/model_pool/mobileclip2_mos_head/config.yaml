@@ -1,0 +1,16 @@
+{
+  "method": "mobileclip2_mos_head",
+  "impl": "score_mos_transfer.py",
+  "config": {
+    "head": "ridge",
+    "image_size": 256,
+    "alphas": [
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.3,
+      1.0
+    ]
+  }
+}

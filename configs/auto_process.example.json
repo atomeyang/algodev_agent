@@ -1,0 +1,31 @@
+{
+  "task_id": "auto_regression",
+  "task_slug": "auto_regression",
+  "domain": "demo_tabular",
+  "business": "Reduce regression error on overall and low-light slices.",
+  "inputs": ["tabular_features"],
+  "outputs": ["regression_prediction"],
+  "target_hardware": "cpu",
+  "demo": true,
+  "synthetic": true,
+  "auto_process": true,
+  "primary_metric": {"name": "rmse", "direction": "min", "threshold": 0.5},
+  "secondary_metrics": [{"name": "rmse_low_light", "direction": "min", "threshold": 0.5}],
+  "budget": {
+    "max_research_calls": 6,
+    "max_research_steps": 8,
+    "max_candidates": 3,
+    "max_coding_calls": 12,
+    "max_fix_attempts": 3,
+    "max_experiments": 20,
+    "max_iterations": 6,
+    "max_no_improve": 3,
+    "max_epochs": 200,
+    "max_wall_clock_s": 3600,
+    "max_cloud_tokens": 400000,
+    "max_data_operations": 24,
+    "max_added_samples": 10000,
+    "max_annotation_samples": 1000
+  },
+  "data_sources": []
+}

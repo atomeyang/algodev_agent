@@ -1,0 +1,539 @@
+{
+  "report_markdown": "# IQA research & design (iteration 1)\n\n> OFFLINE MODE: no live literature search or cloud model was used. Candidates and thresholds come from the local IQA workspace + the requirement report; all results are labelled with their real provenance (frozen pseudo-MOS benchmark).\n\n## Business objective\n轻量双输出 IQA 模型研发：输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；主指标 PLCC >= 0.85（真实 MOS，KonIQ-10k 官方测试集），SRCC >= 0.85；ROM < 60MB fp16；参考 MobileCLIP2-S0 方案。\n\n## Hard constraints\n- ROM < 60 MB fp16 (deployment drops the text tower)\n- dual output: 0-100 quality score + 5 defect multi-labels (blur/over_exp/under_exp/flare/white_balance)\n\n## Acceptance floors\n- **PLCC >= 0.85  (primary gate this run)**, with defect Macro-F1 etc. as secondary gates\n- secondary floors: SRCC >= 0.9, defect Macro-F1 >= 0.85, hardcase Macro-F1 >= 0.85, grade agreement >= 0.9\n\n## Frozen evaluation reality check\n- benchmark: real human MOS (KonIQ-10k), official train/val/test split\n- PLCC/SRCC are scored on the official **test** split; defect annotations do not exist here, so the defect / hardcase / grade gates are reported as inapplicable\n\n## Candidates\n- **mobileclip2_mos_head** (transfer+ridge-head): Frozen MobileCLIP2-S0 visual tower + L2-normalised features with a ridge MOS head; regularisation chosen on the official KonIQ train/val split, head refit on all dev rows. Reuses the exact deployable backbone already inside the ROM budget. (expected gain: targets the real-MOS PLCC/SRCC gate directly; measured KonIQ test PLCC ~0.89; cost: ~1 run (~3-5 min GPU first time, cached))\n\n## 1. 当前产出精度状态 (iteration 1)\n- source: frozen registry baseline (start point; no agent run yet)\n- best model: `measure_threshold / mobileclip2_v7_score (reference)`\n\n| gate | current | floor | direction | verdict |\n| --- | --- | --- | --- | --- |\n| score PLCC (real human MOS) (`plcc`) | 0.4757 | 0.85 | max | **fail** |\n| score SRCC (real human MOS) (`srcc`) | 0.5085 | 0.85 | max | **fail** |\n| ROM (fp16) (`rom_mb`) | n/a | 60.00 | min (budget) | **not measured** |\n\n- verdict: **2 gate(s) failing** -> plcc, srcc\n- NOTE: real human MOS benchmark (KonIQ-10k): PLCC/SRCC are scored against the official test split; the defect / hardcase / grade gates do not apply here because the benchmark ships no defect annotations.\n- NOTE: the requirement's PLCC target (>= 0.85) is defined on this real-MOS track; the frozen MobileCLIP2-S0 encoder + a light head already sits on the good side.\n- NOTE: iteration 1 has no agent run yet, so the table shows the frozen registry baseline as the starting point.\n\n## 2. 模型 & 损失函数 & 训练策略优化计划\n### opt-mos-frozen-head - real-MOS PLCC / SRCC (primary gate) (model + loss)\n- change: Frozen MobileCLIP2-S0 visual tower + L2-normalised 512-d embedding with a lightly-regularised linear (ridge) head; ridge alpha chosen by the official KonIQ train/val split and the head refit on all dev rows. This is the current best honest frontier (measured test PLCC ~0.89) and it reuses the exact deployable backbone already inside the ROM budget.\n- parameters: `head`=ridge on L2-normalised frozen features; `alpha_grid`=[0.003, 0.01, 0.03, 0.1, 0.3, 1.0]; `selection`=official KonIQ train/val split PLCC; `clip`=predictions clipped to [0,100]\n- why now: PLCC/SRCC are rank metrics; a low-capacity head on strong frozen features generalises better than the LoRA+MSE adapter on a 8k-row MOS panel\n- expected effect: PLCC >= 0.85 on the frozen real-MOS test split\n- risk: frozen features cap the frontier near ~0.89; going higher needs encoder tuning\n### opt-mos-rank-loss-lora - raise the real-MOS frontier above the frozen-feature ceiling (model + loss + training strategy)\n- change: Fine-tune the last 1-2 visual blocks with LoRA and train the head with MSE + a pairwise margin-rank term over (i, j) pairs with |MOS_i - MOS_j| > delta, early-stopped on the official val PLCC; keep the frozen-feature ridge as the fallback whenever the fine-tune does not win on val.\n- parameters: `loss`=MSE + lambda * MarginRankingLoss; `lambda`=1.0-3.0; `lora_rank`=8; `unfreeze_last_blocks`=2; `amp`=fp16; `early_stop`=val PLCC, patience 8; `seeds`=3\n- why now: the ridge head is already at the frozen-feature ceiling; only encoder-side adaptation can move PLCC further, and the val gate protects against overfit\n- expected effect: PLCC +0.01-0.03 over the frozen-feature ridge if features are the limit\n- risk: LoRA overfits the 8k dev rows; must not exceed the 60 MB fp16 ROM budget\n### opt-mos-eval-hygiene - trustworthy real-MOS numbers (evaluation)\n- change: Report the frozen test PLCC/SRCC with bootstrap 95% CIs, fix a >= 3-seed protocol, and re-check the head-vs-adapter gap (ridge ~0.89 vs adapter ~0.82) before acting on any delta.\n- parameters: `seeds`=3; `bootstrap`=1000; `ci`=0.95; `eval_split`=official KonIQ test (never trained on)\n- why now: the user's gate is a single threshold; a CI makes 'pass' auditable\n- expected effect: no decisions taken on noise\n- risk: bootstrap + seeds cost a little CPU (seconds for a linear head)\n### opt-score-rank-loss - score PLCC / SRCC (model + loss)\n- change: Train the score head with a pairwise ranking term on top of MSE (loss = MSE(score, mos) + lambda * margin-rank loss over (i, j) pairs with |mos_i - mos_j| > delta), because PLCC/SRCC are rank statistics while MSE only optimises calibration.\n- parameters: `rank_loss`=pairwise Logistic/MarginRankingLoss; `lambda`=0.3 -> 1.0; `delta`=0.1 (ignore near-ties in the pseudo-MOS); `head`=score MLP 256->1\n- why now: plcc/srcc are the gates with the largest gap.\n- expected effect: rank correlation up without retraining the encoder; calibration reported separately\n- risk: pairwise loss can collapse the score scale -> watch MAE/grade agreement\n### opt-defect-asymmetric-loss - defect Macro-F1 (weak classes: tbd) (loss)\n- change: Replace the plain BCE with class-balanced asymmetric focal BCE: pos_weight_d = clip(N_neg / N_pos, 1.0, max_pos_weight) computed per class on the train split, focal gamma 1.5, and a per-class decision threshold tuned on the subject-disjoint val split by F1 maximisation.\n- parameters: `pos_weight_scale`=1.5-2.5; `max_pos_weight`=40.0; `focal_gamma`=1.5; `threshold_tuning`=val-split F1 max, one threshold per class; `label_smoothing`=0.02\n- why now: generalises the class-balance fix for any class the loop flags next.\n- expected effect: rare-class recall up; guard precision with the per-class threshold\n- risk: over-predicting rare classes inflates FP on the frequent classes\n### opt-train-strategy - stability + generalisation on the 410-row dev split (training strategy)\n- change: Longer, better-regularised head training: warmup 5% + cosine decay, EMA of head weights, early stop on val macro-F1 with patience 20, gradient accumulation to an effective batch >= 64, fp16 autocast, and encoder unfreezing scheduled so the last N transformer blocks train only after the head has stabilised.\n- parameters: `epochs`=120-200 (budget max_epochs=200); `warmup`=5%; `cosine`=True; `ema_decay`=0.999; `early_stop_patience`=20; `effective_batch`=64; `amp`=fp16; `unfreeze_last_blocks`=2\n- why now: the current 40-120 epoch heads are the only trainable part, so schedule quality is cheap to improve\n- expected effect: lower variance across iterations; PLCC/F1 less seed-sensitive\n- risk: longer training overfits a 410-row dev split -> keep the subject-disjoint val gate\n### opt-head-ensemble-flare - flare (0.000 on the rule head, 0.706 on the multitask head) (model)\n- change: Keep the trained 5-way defect head as the primary head but distil the calibrated rule/measure features into it (feature-level distillation on flare), so the single deployed head does not regress to the rule head's 0 FLARE F1.\n- parameters: `method`=feature distillation; `rule_features`=blob/ratio/cast statistics from measure_lib; `head`=concat(adapter_feat, rule_feat) -> 5 logits\n- why now: the rule head cannot separate flare at all while the adapter head can\n- expected effect: flare F1 kept while ROM stays inside the budget\n- risk: feature concatenation adds parameters -> re-check the 60 MB fp16 ROM gate\n### opt-encoder-resolution - ROM vs accuracy head-room (model trade-off)\n- change: Evaluate MobileCLIP2-S0 at 256 vs 336 input, and S0 vs the next-smaller/larger encoder variant, and pick the largest encoder that still fits <60 MB fp16 with the heads (11.46 M params at S0 -> ~22.9 MB fp16, so there is head-room).\n- parameters: `encoders`=['MobileCLIP2-S0', 'MobileCLIP2-S2 (if it fits)']; `resolutions`=[256, 336]; `rom_gate_mb`=60.0\n- why now: score accuracy is the binding gate now, and ROM has head-room\n- expected effect: higher score correlation without breaking the ROM constraint\n- risk: bigger encoder raises per-sample latency (not measured in this run)\n### opt-eval-hygiene - trustworthy numbers (evaluation)\n- change: Re-verify the frozen metric path against iqa_agent.tools.iqa_model.evaluate for the exact checkpoint/preprocessing pair before acting on any PLCC delta; report PLCC/SRCC with bootstrap CIs and fix the seed set (>= 3 seeds, report mean +- std).\n- parameters: `seeds`=3; `bootstrap`=1000; `target_ci`=0.95\n- why now: the run reported PLCC 0.4338 where the reference baseline reports 0.4757 for the same model/split/metric code; that gap is unresolved and must be explained first\n- expected effect: no decisions taken on noise\n- risk: more seeds cost GPU time\n\n## 3. 数据标注调优计划 & 数据扩增计划\n\n### 3.1b 真实 MOS 数据计划 (本任务当前 benchmark)\n- goal: grow and harden the real human-MOS supervision used by the score head\n- used now: KonIQ-10k official train+val (7058 training + 1000 validation, real panel MOS)\n- frozen eval: KonIQ-10k official test (2015 real-MOS images), never trained on\n- extra real-MOS panels (local): SPAQ, KADID-10k, KonIQ++ (local copies under IQADataPart/)\n- annotation: no new human annotation is required for the score target - the MOS panels already carry a human panel mean; the improvement loop is model and training-strategy, not label collection\n- defect labels: KonIQ ships no defect annotations, so the dual-output defect head stays on the pseudo benchmark / local-VLM pre-label + human-review path below; the dual output is a product requirement, gated separately\n- augmentation: train-side only, quality-preserving: mild resize / crop / JPEG re-encode calibrated to KonIQ's compression range so perceived quality is unchanged\n- augmentation: severity-matched synthetic degradations (blur / clipping / WB / noise / glare) on clean sources with the human MOS as a soft target - a secondary regulariser, validated on the frozen test split before it can enter a dataset version\n- augmentation: cross-panel mixing (KonIQ + SPAQ + KADID) to test generalisation; score heads are re-fit per panel unless a cross-panel result is reported\n\n### 3.2 数据标注调优计划 (本地辅助标注模型 + 人工复核)\n- goal: Turn the local VLM from an unvalidated helper into a review-assisted labeller that raises the positive count for the classes the frozen eval cannot measure (white_balance 0, flare 9), without ever treating a model output as ground truth.\n- local model: `qwen3.8-27b` at `local_largemodel/qwen3.8-27b` (llama.cpp llama-server, OpenAI-compatible, endpoint `http://127.0.0.1:8084/v1`, modalities text, image)\n- client: `algorithm_plugins/iqa/annotation.py` + `scripts/iqa_annotate.py`, prompt_version `iqa-prelabel-v1`\n- invariant: review_required is always true - pre-labels never enter a dataset version unreviewed\n- measured pilot agreement (real runs of `scripts/iqa_annotate.py`):\n  - `iqa_annotations/prelabels_eval_iqa-prelabel-v1.agreement.json` on 20 paired images; severity_MAE=0.500; wb_direction_acc=n/a; blur P=0.250/R=0.200/F1=0.222; over_exp P=0.750/R=1.000/F1=0.857; under_exp P=1.000/R=0.500/F1=0.667; flare P=0.000/R=0.000/F1=0.000; white_balance P=0.000/R=0.000/F1=0.000\n- reading: strong on over-exposure (F1 0.857), weak on blur (0.222) and it over-fires flare / white_balance, so v1 is a candidate generator for the missing positives and NOT a stand-alone labeller; every pre-label needs human review.\n- tuning: prompt v2 for blur: ask the model for an edge-energy / high-frequency check and a centre-vs-corner crop comparison before deciding blur; v1 blur P/R was 0.25/0.20 on the 20-image pilot.\n- tuning: add an explicit negative guard for flare and white_balance: require a described light source / cast direction; v1 flagged 4 flare FP and 6 white_balance FP on the same 20 images, so its positive rate is unusable without the guard.\n- tuning: require the wb direction (cool/warm/green/magenta) and reject any white_balance=present without a direction; wb_direction_acc was not measurable in v1 (0 GT positives).\n- tuning: run the pilot per class in batches of 20-30, keep the prompt_version in provenance, and only promote a prompt version when its agreement on a 30-image human-reviewed set beats the previous one.\n- review protocol: rare_classes=flare, white_balance -> 100% human review of every pre-label; other_classes=>= 30% stratified human review (stratified by model confidence); accept_rule=a pre-label is accepted only after a human accept/edit; disagreement is logged and drives the next prompt version; audit=store model_id + prompt_version + reviewer + accept/edit/reject in the row provenance; kpi=human review time per accepted label, and the pre-label accept rate per class\n\n### 3.3 数据扩增计划\n- goal: Fill the measurable-support gaps for the classes the frozen eval cannot score, then re-freeze.\n- rule: augment only the train split; the frozen eval is never augmented in the same protocol version\n- rule: every augmented sample keeps provenance (source image id + transform + parameters)\n- rule: bump dataset_version and re-run the reference baseline after any augmentation release\n- **white_balance** (target 30): channel-gain (von Kries-style) transforms of clean images at measured colour temperatures, verified by estimating the cast direction back; real captures collected with grey-card reference for ground-truth direction -- cover cool/warm/green/magenta roughly balanced; a class with 0 positives today is the single biggest structural cap on the macro-F1 gate.\n- **flare** (target 30): physically-plausible veiling-glare / ghost overlays whose PSF is estimated from the real flare positives; vary intensity in the same 0/1/2/3 severity scale as the taxonomy -- mix synthetic with real captures; keep a small human-reviewed synthetic holdout to catch an overlay artifact the metric would otherwise reward.\n- **under_exp** (target 150): gamma/curve-based darkening with highlight preservation, severity-matched to the existing labels\n- **blur** (target 150): motion-blur kernels (direction + length) and defocus disks, severity-matched\n- **over_exp** (target 75): clipping curve / specular-region growth, severity-matched\n- acceptance: after augmentation, re-run measure_threshold + the best adapter on the re-frozen eval\n- acceptance: only promote the new dataset version if the reference baseline improves or holds on every class that was already measurable",
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "mobileclip2_mos_head",
+      "method": "mobileclip2_mos_head",
+      "family": "transfer+ridge-head",
+      "description": "Frozen MobileCLIP2-S0 visual tower + L2-normalised features with a ridge MOS head; regularisation chosen on the official KonIQ train/val split, head refit on all dev rows. Reuses the exact deployable backbone already inside the ROM budget.",
+      "expected_gain": "targets the real-MOS PLCC/SRCC gate directly; measured KonIQ test PLCC ~0.89",
+      "cost_estimate": "~1 run (~3-5 min GPU first time, cached)",
+      "failure_conditions": [
+        "frozen features cap the frontier (~0.89); a LoRA finetune could go higher at more cost"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    }
+  ],
+  "hypotheses": [
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: none identified yet.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1."
+  ],
+  "controls": [
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "counterexamples": [
+    "flare positives are only 9 in eval -> wide confidence interval",
+    "pseudo-MOS is quantised, so PLCC has a low ceiling"
+  ],
+  "unknowns": [
+    "white_balance unmeasurable on the frozen eval (0 positives)",
+    "on-device latency not measured"
+  ],
+  "evidence_refs": [
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/benchmark",
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/registry/baseline.json",
+    "IQA轻量双输出模型选型与数据集构建深度调研报告.docx"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v1",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir). Label-gap classes are filled offline: local_largemodel/qwen3.8-27b proposes candidate defect labels (scripts/iqa_annotate.py, prompt iqa-prelabel-v1) and every candidate goes through human review before it can enter a dataset version; classes with no measurable support receive severity-matched augmentation (see the data plan in the research report).",
+    "source": "qaa_iqa_frozen_benchmark + local_vlm_prelabels(qwen3.8-27b) + severity-matched augmentation",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)",
+      "human-reviewed local-VLM pre-labels (provenance: model_id+prompt_version)",
+      "train-split-only augmentation for zero/low-support classes"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method; augmentation never touches the frozen eval in the same protocol version"
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v1",
+    "primary_metric": "plcc",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v1",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params."
+  },
+  "cost": {
+    "cloud_tokens": 0,
+    "currency": "USD",
+    "source": "offline"
+  },
+  "status": "completed",
+  "offline": true,
+  "tool_calls": [
+    {
+      "tool": "search_sources",
+      "refs": 0,
+      "used_search_service": false,
+      "note": "offline mode: no live search service configured; using local plugin material only"
+    },
+    {
+      "tool": "build_packet",
+      "refs": 0
+    },
+    {
+      "tool": "search_sources",
+      "offline": true,
+      "refs": 0
+    }
+  ],
+  "extras": {
+    "precision_status": {
+      "iteration": 1,
+      "source": "frozen registry baseline (start point; no agent run yet)",
+      "best_model": "measure_threshold / mobileclip2_v7_score (reference)",
+      "primary_metric": "plcc",
+      "rows": [
+        {
+          "metric": "plcc",
+          "label": "score PLCC (real human MOS)",
+          "value": 0.4757,
+          "floor": 0.85,
+          "role": "primary gate",
+          "verdict": "fail",
+          "primary": true
+        },
+        {
+          "metric": "srcc",
+          "label": "score SRCC (real human MOS)",
+          "value": 0.5085,
+          "floor": 0.85,
+          "role": "secondary gate",
+          "verdict": "fail",
+          "primary": false
+        },
+        {
+          "metric": "rom_mb",
+          "label": "ROM (fp16)",
+          "value": null,
+          "floor": 60.0,
+          "role": "hard constraint, lower is better",
+          "verdict": "not measured",
+          "direction": "max_budget"
+        }
+      ],
+      "failing": [
+        "plcc",
+        "srcc"
+      ],
+      "n_failing": 2,
+      "n_eval": 610,
+      "quality_only": true,
+      "support": {
+        "blur": 150,
+        "over_exp": 75,
+        "under_exp": 75,
+        "flare": 9,
+        "white_balance": 0
+      },
+      "notes": [
+        "real human MOS benchmark (KonIQ-10k): PLCC/SRCC are scored against the official test split; the defect / hardcase / grade gates do not apply here because the benchmark ships no defect annotations.",
+        "the requirement's PLCC target (>= 0.85) is defined on this real-MOS track; the frozen MobileCLIP2-S0 encoder + a light head already sits on the good side.",
+        "iteration 1 has no agent run yet, so the table shows the frozen registry baseline as the starting point."
+      ]
+    },
+    "optimization_plan": [
+      {
+        "id": "opt-mos-frozen-head",
+        "track": "model + loss",
+        "target": "real-MOS PLCC / SRCC (primary gate)",
+        "change": "Frozen MobileCLIP2-S0 visual tower + L2-normalised 512-d embedding with a lightly-regularised linear (ridge) head; ridge alpha chosen by the official KonIQ train/val split and the head refit on all dev rows. This is the current best honest frontier (measured test PLCC ~0.89) and it reuses the exact deployable backbone already inside the ROM budget.",
+        "concrete_params": {
+          "head": "ridge on L2-normalised frozen features",
+          "alpha_grid": [
+            0.003,
+            0.01,
+            0.03,
+            0.1,
+            0.3,
+            1.0
+          ],
+          "selection": "official KonIQ train/val split PLCC",
+          "clip": "predictions clipped to [0,100]"
+        },
+        "why_now": "PLCC/SRCC are rank metrics; a low-capacity head on strong frozen features generalises better than the LoRA+MSE adapter on a 8k-row MOS panel",
+        "expected_effect": "PLCC >= 0.85 on the frozen real-MOS test split",
+        "risk": "frozen features cap the frontier near ~0.89; going higher needs encoder tuning"
+      },
+      {
+        "id": "opt-mos-rank-loss-lora",
+        "track": "model + loss + training strategy",
+        "target": "raise the real-MOS frontier above the frozen-feature ceiling",
+        "change": "Fine-tune the last 1-2 visual blocks with LoRA and train the head with MSE + a pairwise margin-rank term over (i, j) pairs with |MOS_i - MOS_j| > delta, early-stopped on the official val PLCC; keep the frozen-feature ridge as the fallback whenever the fine-tune does not win on val.",
+        "concrete_params": {
+          "loss": "MSE + lambda * MarginRankingLoss",
+          "lambda": "1.0-3.0",
+          "lora_rank": 8,
+          "unfreeze_last_blocks": 2,
+          "amp": "fp16",
+          "early_stop": "val PLCC, patience 8",
+          "seeds": 3
+        },
+        "why_now": "the ridge head is already at the frozen-feature ceiling; only encoder-side adaptation can move PLCC further, and the val gate protects against overfit",
+        "expected_effect": "PLCC +0.01-0.03 over the frozen-feature ridge if features are the limit",
+        "risk": "LoRA overfits the 8k dev rows; must not exceed the 60 MB fp16 ROM budget"
+      },
+      {
+        "id": "opt-mos-eval-hygiene",
+        "track": "evaluation",
+        "target": "trustworthy real-MOS numbers",
+        "change": "Report the frozen test PLCC/SRCC with bootstrap 95% CIs, fix a >= 3-seed protocol, and re-check the head-vs-adapter gap (ridge ~0.89 vs adapter ~0.82) before acting on any delta.",
+        "concrete_params": {
+          "seeds": 3,
+          "bootstrap": 1000,
+          "ci": 0.95,
+          "eval_split": "official KonIQ test (never trained on)"
+        },
+        "why_now": "the user's gate is a single threshold; a CI makes 'pass' auditable",
+        "expected_effect": "no decisions taken on noise",
+        "risk": "bootstrap + seeds cost a little CPU (seconds for a linear head)"
+      },
+      {
+        "id": "opt-score-rank-loss",
+        "track": "model + loss",
+        "target": "score PLCC / SRCC",
+        "change": "Train the score head with a pairwise ranking term on top of MSE (loss = MSE(score, mos) + lambda * margin-rank loss over (i, j) pairs with |mos_i - mos_j| > delta), because PLCC/SRCC are rank statistics while MSE only optimises calibration.",
+        "concrete_params": {
+          "rank_loss": "pairwise Logistic/MarginRankingLoss",
+          "lambda": "0.3 -> 1.0",
+          "delta": "0.1 (ignore near-ties in the pseudo-MOS)",
+          "head": "score MLP 256->1"
+        },
+        "why_now": "plcc/srcc are the gates with the largest gap.",
+        "expected_effect": "rank correlation up without retraining the encoder; calibration reported separately",
+        "risk": "pairwise loss can collapse the score scale -> watch MAE/grade agreement"
+      },
+      {
+        "id": "opt-defect-asymmetric-loss",
+        "track": "loss",
+        "target": "defect Macro-F1 (weak classes: tbd)",
+        "change": "Replace the plain BCE with class-balanced asymmetric focal BCE: pos_weight_d = clip(N_neg / N_pos, 1.0, max_pos_weight) computed per class on the train split, focal gamma 1.5, and a per-class decision threshold tuned on the subject-disjoint val split by F1 maximisation.",
+        "concrete_params": {
+          "pos_weight_scale": "1.5-2.5",
+          "max_pos_weight": 40.0,
+          "focal_gamma": 1.5,
+          "threshold_tuning": "val-split F1 max, one threshold per class",
+          "label_smoothing": 0.02
+        },
+        "why_now": "generalises the class-balance fix for any class the loop flags next.",
+        "expected_effect": "rare-class recall up; guard precision with the per-class threshold",
+        "risk": "over-predicting rare classes inflates FP on the frequent classes"
+      },
+      {
+        "id": "opt-train-strategy",
+        "track": "training strategy",
+        "target": "stability + generalisation on the 410-row dev split",
+        "change": "Longer, better-regularised head training: warmup 5% + cosine decay, EMA of head weights, early stop on val macro-F1 with patience 20, gradient accumulation to an effective batch >= 64, fp16 autocast, and encoder unfreezing scheduled so the last N transformer blocks train only after the head has stabilised.",
+        "concrete_params": {
+          "epochs": "120-200 (budget max_epochs=200)",
+          "warmup": "5%",
+          "cosine": true,
+          "ema_decay": 0.999,
+          "early_stop_patience": 20,
+          "effective_batch": 64,
+          "amp": "fp16",
+          "unfreeze_last_blocks": 2
+        },
+        "why_now": "the current 40-120 epoch heads are the only trainable part, so schedule quality is cheap to improve",
+        "expected_effect": "lower variance across iterations; PLCC/F1 less seed-sensitive",
+        "risk": "longer training overfits a 410-row dev split -> keep the subject-disjoint val gate"
+      },
+      {
+        "id": "opt-head-ensemble-flare",
+        "track": "model",
+        "target": "flare (0.000 on the rule head, 0.706 on the multitask head)",
+        "change": "Keep the trained 5-way defect head as the primary head but distil the calibrated rule/measure features into it (feature-level distillation on flare), so the single deployed head does not regress to the rule head's 0 FLARE F1.",
+        "concrete_params": {
+          "method": "feature distillation",
+          "rule_features": "blob/ratio/cast statistics from measure_lib",
+          "head": "concat(adapter_feat, rule_feat) -> 5 logits"
+        },
+        "why_now": "the rule head cannot separate flare at all while the adapter head can",
+        "expected_effect": "flare F1 kept while ROM stays inside the budget",
+        "risk": "feature concatenation adds parameters -> re-check the 60 MB fp16 ROM gate"
+      },
+      {
+        "id": "opt-encoder-resolution",
+        "track": "model trade-off",
+        "target": "ROM vs accuracy head-room",
+        "change": "Evaluate MobileCLIP2-S0 at 256 vs 336 input, and S0 vs the next-smaller/larger encoder variant, and pick the largest encoder that still fits <60 MB fp16 with the heads (11.46 M params at S0 -> ~22.9 MB fp16, so there is head-room).",
+        "concrete_params": {
+          "encoders": [
+            "MobileCLIP2-S0",
+            "MobileCLIP2-S2 (if it fits)"
+          ],
+          "resolutions": [
+            256,
+            336
+          ],
+          "rom_gate_mb": 60.0
+        },
+        "why_now": "score accuracy is the binding gate now, and ROM has head-room",
+        "expected_effect": "higher score correlation without breaking the ROM constraint",
+        "risk": "bigger encoder raises per-sample latency (not measured in this run)"
+      },
+      {
+        "id": "opt-eval-hygiene",
+        "track": "evaluation",
+        "target": "trustworthy numbers",
+        "change": "Re-verify the frozen metric path against iqa_agent.tools.iqa_model.evaluate for the exact checkpoint/preprocessing pair before acting on any PLCC delta; report PLCC/SRCC with bootstrap CIs and fix the seed set (>= 3 seeds, report mean +- std).",
+        "concrete_params": {
+          "seeds": 3,
+          "bootstrap": 1000,
+          "target_ci": 0.95
+        },
+        "why_now": "the run reported PLCC 0.4338 where the reference baseline reports 0.4757 for the same model/split/metric code; that gap is unresolved and must be explained first",
+        "expected_effect": "no decisions taken on noise",
+        "risk": "more seeds cost GPU time"
+      }
+    ],
+    "data_plan": {
+      "support": {
+        "blur": 150,
+        "over_exp": 75,
+        "under_exp": 75,
+        "flare": 9,
+        "white_balance": 0
+      },
+      "n_eval": 610,
+      "targets": [
+        {
+          "defect": "blur",
+          "defect_zh": "模糊",
+          "current_positives": 150,
+          "target_positives": 150,
+          "gap": 0,
+          "measurable": true
+        },
+        {
+          "defect": "over_exp",
+          "defect_zh": "过曝",
+          "current_positives": 75,
+          "target_positives": 75,
+          "gap": 0,
+          "measurable": true
+        },
+        {
+          "defect": "under_exp",
+          "defect_zh": "欠曝",
+          "current_positives": 75,
+          "target_positives": 150,
+          "gap": 75,
+          "measurable": true
+        },
+        {
+          "defect": "flare",
+          "defect_zh": "炫光",
+          "current_positives": 9,
+          "target_positives": 30,
+          "gap": 21,
+          "measurable": true
+        },
+        {
+          "defect": "white_balance",
+          "defect_zh": "白平衡",
+          "current_positives": 0,
+          "target_positives": 30,
+          "gap": 30,
+          "measurable": false
+        }
+      ],
+      "annotation": {
+        "goal": "Turn the local VLM from an unvalidated helper into a review-assisted labeller that raises the positive count for the classes the frozen eval cannot measure (white_balance 0, flare 9), without ever treating a model output as ground truth.",
+        "local_model": {
+          "model_id": "qwen3.8-27b",
+          "path": "local_largemodel/qwen3.8-27b",
+          "serving": "llama.cpp llama-server, OpenAI-compatible",
+          "endpoint": "http://127.0.0.1:8084/v1",
+          "modalities": [
+            "text",
+            "image"
+          ],
+          "role": "candidate-label assistant (pre-annotation, diagnosis, prompt iteration)"
+        },
+        "client": {
+          "module": "algorithm_plugins/iqa/annotation.py",
+          "script": "scripts/iqa_annotate.py",
+          "prompt_version": "iqa-prelabel-v1",
+          "output_schema": "{path, ok, defects{d:{present,severity[,direction]}}, quality_score_0_100, confidence_0_1, model_id, prompt_version, elapsed_s, usage, review_required: true, provenance}",
+          "invariant": "review_required is always true - pre-labels never enter a dataset version unreviewed"
+        },
+        "pilot_evidence": [
+          {
+            "n_paired": 20,
+            "per_class": {
+              "blur": {
+                "precision": 0.25,
+                "recall": 0.2,
+                "f1": 0.2222,
+                "support": 5,
+                "tp": 1,
+                "fp": 3,
+                "fn": 4,
+                "tn": 12
+              },
+              "over_exp": {
+                "precision": 0.75,
+                "recall": 1.0,
+                "f1": 0.8571,
+                "support": 6,
+                "tp": 6,
+                "fp": 2,
+                "fn": 0,
+                "tn": 12
+              },
+              "under_exp": {
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6667,
+                "support": 2,
+                "tp": 1,
+                "fp": 0,
+                "fn": 1,
+                "tn": 18
+              },
+              "flare": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 0,
+                "tp": 0,
+                "fp": 4,
+                "fn": 0,
+                "tn": 16
+              },
+              "white_balance": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 0,
+                "tp": 0,
+                "fp": 6,
+                "fn": 0,
+                "tn": 14
+              }
+            },
+            "severity_mae": 0.5,
+            "severity_n": 8,
+            "wb_direction_acc": null,
+            "wb_direction_n": 0,
+            "report": "iqa_annotations/prelabels_eval_iqa-prelabel-v1.agreement.json"
+          }
+        ],
+        "tuning_steps": [
+          "prompt v2 for blur: ask the model for an edge-energy / high-frequency check and a centre-vs-corner crop comparison before deciding blur; v1 blur P/R was 0.25/0.20 on the 20-image pilot.",
+          "add an explicit negative guard for flare and white_balance: require a described light source / cast direction; v1 flagged 4 flare FP and 6 white_balance FP on the same 20 images, so its positive rate is unusable without the guard.",
+          "require the wb direction (cool/warm/green/magenta) and reject any white_balance=present without a direction; wb_direction_acc was not measurable in v1 (0 GT positives).",
+          "run the pilot per class in batches of 20-30, keep the prompt_version in provenance, and only promote a prompt version when its agreement on a 30-image human-reviewed set beats the previous one."
+        ],
+        "review_protocol": {
+          "rare_classes": "flare, white_balance -> 100% human review of every pre-label",
+          "other_classes": ">= 30% stratified human review (stratified by model confidence)",
+          "accept_rule": "a pre-label is accepted only after a human accept/edit; disagreement is logged and drives the next prompt version",
+          "audit": "store model_id + prompt_version + reviewer + accept/edit/reject in the row provenance",
+          "kpi": "human review time per accepted label, and the pre-label accept rate per class"
+        }
+      },
+      "augmentation": {
+        "goal": "Fill the measurable-support gaps for the classes the frozen eval cannot score, then re-freeze.",
+        "rules": [
+          "augment only the train split; the frozen eval is never augmented in the same protocol version",
+          "every augmented sample keeps provenance (source image id + transform + parameters)",
+          "bump dataset_version and re-run the reference baseline after any augmentation release"
+        ],
+        "per_class": {
+          "white_balance": {
+            "target_positives": 30,
+            "directions": [
+              "cool",
+              "warm",
+              "green",
+              "magenta"
+            ],
+            "methods": [
+              "channel-gain (von Kries-style) transforms of clean images at measured colour temperatures, verified by estimating the cast direction back",
+              "real captures collected with grey-card reference for ground-truth direction"
+            ],
+            "note": "cover cool/warm/green/magenta roughly balanced; a class with 0 positives today is the single biggest structural cap on the macro-F1 gate."
+          },
+          "flare": {
+            "target_positives": 30,
+            "methods": [
+              "physically-plausible veiling-glare / ghost overlays whose PSF is estimated from the real flare positives",
+              "vary intensity in the same 0/1/2/3 severity scale as the taxonomy"
+            ],
+            "note": "mix synthetic with real captures; keep a small human-reviewed synthetic holdout to catch an overlay artifact the metric would otherwise reward."
+          },
+          "under_exp": {
+            "target_positives": 150,
+            "methods": [
+              "gamma/curve-based darkening with highlight preservation, severity-matched to the existing labels"
+            ]
+          },
+          "blur": {
+            "target_positives": 150,
+            "methods": [
+              "motion-blur kernels (direction + length) and defocus disks, severity-matched"
+            ]
+          },
+          "over_exp": {
+            "target_positives": 75,
+            "methods": [
+              "clipping curve / specular-region growth, severity-matched"
+            ]
+          }
+        },
+        "acceptance": [
+          "after augmentation, re-run measure_threshold + the best adapter on the re-frozen eval",
+          "only promote the new dataset version if the reference baseline improves or holds on every class that was already measurable"
+        ]
+      },
+      "real_mos": {
+        "goal": "grow and harden the real human-MOS supervision used by the score head",
+        "used_now": "KonIQ-10k official train+val (7058 training + 1000 validation, real panel MOS)",
+        "frozen_eval": "KonIQ-10k official test (2015 real-MOS images), never trained on",
+        "extra_panels": [
+          "SPAQ",
+          "KADID-10k",
+          "KonIQ++ (local copies under IQADataPart/)"
+        ],
+        "annotation": "no new human annotation is required for the score target - the MOS panels already carry a human panel mean; the improvement loop is model and training-strategy, not label collection",
+        "defect_labels": "KonIQ ships no defect annotations, so the dual-output defect head stays on the pseudo benchmark / local-VLM pre-label + human-review path below; the dual output is a product requirement, gated separately",
+        "augmentation": [
+          "train-side only, quality-preserving: mild resize / crop / JPEG re-encode calibrated to KonIQ's compression range so perceived quality is unchanged",
+          "severity-matched synthetic degradations (blur / clipping / WB / noise / glare) on clean sources with the human MOS as a soft target - a secondary regulariser, validated on the frozen test split before it can enter a dataset version",
+          "cross-panel mixing (KonIQ + SPAQ + KADID) to test generalisation; score heads are re-fit per panel unless a cross-panel result is reported"
+        ]
+      },
+      "quality_only": true,
+      "weak": []
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "method": "multitask_adapter",
+  "impl": "multitask_adapter.py",
+  "config": {
+    "epochs": 40,
+    "lr": 0.002,
+    "bce_weight": 1.0,
+    "pos_weight_scale": 1.0
+  }
+}

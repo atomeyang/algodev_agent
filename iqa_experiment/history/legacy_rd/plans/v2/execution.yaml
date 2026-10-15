@@ -1,0 +1,66 @@
+plan_id: p002
+version: v2
+dag:
+- schema_version: '1.0'
+  step_id: prepare_assets
+  kind: experiment
+  depends_on: []
+  params: {}
+- schema_version: '1.0'
+  step_id: coding
+  kind: coding
+  depends_on:
+  - prepare_assets
+  params: {}
+- schema_version: '1.0'
+  step_id: run_multitask_adapter_long
+  kind: experiment
+  depends_on:
+  - coding
+  params:
+    method: multitask_adapter_long
+- schema_version: '1.0'
+  step_id: evaluate
+  kind: evaluation
+  depends_on:
+  - run_multitask_adapter_long
+  params: {}
+- schema_version: '1.0'
+  step_id: analyze
+  kind: analysis
+  depends_on:
+  - evaluate
+  params: {}
+change_scope:
+  schema_version: '1.0'
+  allowed_methods:
+  - multitask_adapter_long
+  allowed_data_sources:
+  - qaa_iqa_frozen_benchmark
+  - iqa_agent_dev_split
+  - iqa_agent_measure_registry
+  allowed_recipe_changes: []
+  parameter_space:
+    multitask_adapter_long:
+      epochs: 120
+      lr: 0.0015
+      bce_weight: 1.5
+      pos_weight_scale: 1.5
+      tune_thresholds: true
+  write_paths:
+  - model_pool
+  evaluation_protocol_id: iqa_frozen_v2
+  upload_policy: restricted
+  resource_budget:
+    schema_version: '1.0'
+    max_research_calls: 3
+    max_coding_calls: 0
+    max_fix_attempts: 3
+    max_experiments: 24
+    max_epochs: 200
+    max_wall_clock_s: 5400.0
+    max_cloud_tokens: 400000
+    max_no_improve: 4
+    max_iterations: 4
+  max_iterations: 4
+  approval_mode: scoped_auto

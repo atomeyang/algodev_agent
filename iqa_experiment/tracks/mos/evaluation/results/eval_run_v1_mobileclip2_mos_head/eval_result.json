@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "eval_id": "eval_run_v1_mobileclip2_mos_head",
+  "task_id": "iqa_mos",
+  "model_id": "m_mobileclip2_mos_head",
+  "protocol_id": "iqa_frozen_v1",
+  "dataset_version": "v1",
+  "metrics": {
+    "defect_macro_f1": 0.0,
+    "defect_macro_f1_cov": 0.0,
+    "hardcase_macro_f1": 0.0,
+    "hardcase_macro_f1_cov": 0.0,
+    "plcc": 0.8886,
+    "srcc": 0.8712,
+    "grade_agreement": 0.7464,
+    "n_matched": 2015.0,
+    "n_scored": 2015.0,
+    "n_labeled": 2015.0,
+    "f1_blur": 0.0,
+    "support_blur": 0.0,
+    "f1_over_exp": 0.0,
+    "support_over_exp": 0.0,
+    "f1_under_exp": 0.0,
+    "support_under_exp": 0.0,
+    "f1_flare": 0.0,
+    "support_flare": 0.0,
+    "f1_white_balance": 0.0,
+    "support_white_balance": 0.0,
+    "rom_mb": 22.92,
+    "rom_ok": 1.0
+  },
+  "slices": {
+    "blur": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 0.0
+    },
+    "over_exp": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 0.0
+    },
+    "under_exp": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 0.0
+    },
+    "flare": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 0.0
+    },
+    "white_balance": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 0.0
+    }
+  },
+  "resources": {
+    "device": "cuda",
+    "synthetic_demo": false,
+    "gpu": true,
+    "rom_budget_mb": 60.0,
+    "rom": {
+      "ok": true,
+      "rom_mb": 22.92,
+      "budget_mb": 60.0,
+      "headroom_mb": 37.08,
+      "basis": "params_fp16_estimate"
+    }
+  },
+  "failures": [],
+  "passed": true,
+  "synthetic": false,
+  "notes": "frozen IQA protocol; independent metric code (parity-checked with iqa_agent.tools.iqa_model.evaluate); real-MOS benchmark ships no defect annotations; defect Macro-F1 and hardcase gates are not applicable",
+  "created_at": "2026-10-09T07:43:36.836142+00:00"
+}

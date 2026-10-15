@@ -1,0 +1,23 @@
+{
+  "protocol_id": "iqa_frozen_v1",
+  "dataset_version": "v1",
+  "primary_metric": "defect_macro_f1",
+  "direction": "max",
+  "defects": [
+    "blur",
+    "over_exp",
+    "under_exp",
+    "flare",
+    "white_balance"
+  ],
+  "min_class_support": 5,
+  "floors": {
+    "plcc": 0.9,
+    "srcc": 0.9,
+    "defect_macro_f1": 0.85,
+    "hardcase_macro_f1": 0.85,
+    "grade_agreement": 0.9
+  },
+  "rom_budget_mb": 60.0,
+  "frozen": true
+}

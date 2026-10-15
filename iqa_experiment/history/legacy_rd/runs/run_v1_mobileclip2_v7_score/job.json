@@ -1,0 +1,13 @@
+{
+  "config": {},
+  "data_version": "v1",
+  "method": "mobileclip2_v7_score",
+  "method_entry": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/model_pool/mobileclip2_v7_score/method.py",
+  "run_id": "run_v1_mobileclip2_v7_score",
+  "seed": 7,
+  "split": "test",
+  "task_slug": "iqa_rd",
+  "release_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/data/releases/v1",
+  "out_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/runs/run_v1_mobileclip2_v7_score",
+  "task_root": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment"
+}

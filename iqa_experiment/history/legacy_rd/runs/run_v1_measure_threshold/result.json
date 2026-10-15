@@ -1,0 +1,13 @@
+{
+  "method": "measure_threshold",
+  "split": "test",
+  "seed": 7,
+  "n_eval": 610,
+  "synthetic": false,
+  "rom_params_millions": 0.0,
+  "metrics": {
+    "n_eval": 610
+  },
+  "note": "calibrated physical-feature thresholds + linear quality proxy",
+  "status": "succeeded"
+}

@@ -1,0 +1,57 @@
+{
+  "method": "score_moe",
+  "split": "test",
+  "seed": 7,
+  "n_eval": 610,
+  "synthetic": false,
+  "device": "cpu",
+  "rom_params_millions": 0.0,
+  "rom": {
+    "ok": true,
+    "rom_mb": 0.0,
+    "budget_mb": 60.0,
+    "headroom_mb": 60.0,
+    "basis": "params_fp16_estimate"
+  },
+  "feature_dim": 98,
+  "n_train_real": 410,
+  "n_train_synth": 0,
+  "blend_weights": {
+    "global_reg": 0.7,
+    "cls_expect": 0.1,
+    "moe": 0.2
+  },
+  "cv": {
+    "per_component": {
+      "global_reg": 0.5423,
+      "cls_expect": 0.5321,
+      "moe": 0.4719
+    },
+    "blend": 0.5508,
+    "n_folds": 4
+  },
+  "moe": {
+    "n_families": 5,
+    "families": {
+      "blur": 90,
+      "flare": 10,
+      "good": 62,
+      "none": 158,
+      "over_exp": 45,
+      "under_exp": 45
+    },
+    "router_classes": [
+      "blur",
+      "flare",
+      "none",
+      "over_exp",
+      "under_exp"
+    ]
+  },
+  "wall_clock_s": 177.0,
+  "metrics": {
+    "n_eval": 610
+  },
+  "note": "three-view score head (global ET/RF regression; 4-class soft E[score]; coarse-family MoE) blended with weights chosen by subject-group CV on dev only.  Family labels come from the dev `raw_defect` field, never from filename tokens; the frozen eval split is never read for labels.",
+  "status": "succeeded"
+}

@@ -1,0 +1,10 @@
+{
+  "method": "score_moe",
+  "impl": "score_moe.py",
+  "config": {
+    "use_metadata": false,
+    "ensemble_seeds": 3,
+    "cv_folds": 4,
+    "blend_step": 0.1
+  }
+}

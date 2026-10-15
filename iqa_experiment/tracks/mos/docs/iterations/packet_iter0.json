@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "packet_id": "pkt_2068e3df83",
+  "task_id": "iqa_mos",
+  "plan_id": "p001",
+  "baseline_id": "m_mobileclip2_mos_head",
+  "requirement": "轻量双输出 IQA 模型研发：输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；主指标 PLCC >= 0.85（真实 MOS，KonIQ-10k 官方测试集），SRCC >= 0.85；ROM < 60MB fp16；参考 MobileCLIP2-S0 方案。",
+  "metric_delta": {},
+  "slices": {
+    "blur": {
+      "f1": 0.0,
+      "gt_pos": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "flare": {
+      "f1": 0.0,
+      "gt_pos": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "over_exp": {
+      "f1": 0.0,
+      "gt_pos": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "under_exp": {
+      "f1": 0.0,
+      "gt_pos": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "white_balance": {
+      "f1": 0.0,
+      "gt_pos": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  },
+  "failures": [],
+  "counterexamples": [
+    "low-light samples with interaction term"
+  ],
+  "unknowns": [
+    "active benchmark = real human MOS (koniq); the report's PLCC/SRCC target is defined here",
+    "KonIQ ships no defect annotations -> the defect head is not measurable on this track (dual output kept as a product-level constraint)",
+    "no on-device latency measurement in this run (ROM estimate only)"
+  ],
+  "refs": [],
+  "created_at": "2026-10-09T07:43:36.892504+00:00"
+}

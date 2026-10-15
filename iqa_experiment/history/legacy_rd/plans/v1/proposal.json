@@ -1,0 +1,233 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "p001",
+  "task_id": "iqa_rd",
+  "version": "v1",
+  "parent_plan_id": "p002",
+  "summary": "# IQA research & design (iteration 1)\n\n> OFFLINE MODE: no live literature search or cloud model was used. Candidates and thresholds come from the local IQA workspace + the requirement report; all results are labelled with their real provenance (frozen pseudo-MOS benchmark).\n\n## Business objective\n轻量双输出 IQA 模型研发：ROM < 60MB fp16，输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；缺陷 Ma",
+  "evidence_refs": [
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/benchmark",
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/registry/baseline.json",
+    "IQA轻量双输出模型选型与数据集构建深度调研报告.docx"
+  ],
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "measure_threshold",
+      "method": "measure_threshold",
+      "family": "rule",
+      "description": "Calibrated physical features (Laplacian/over-under ratio/blob/cast) with F1-maximising thresholds; zero-ROM distilled defect head.",
+      "expected_gain": "reproduces the dev-calibrated reference defect F1",
+      "cost_estimate": "65 s CPU",
+      "failure_conditions": [
+        "rare classes (flare) and wb direction are not separable"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    },
+    {
+      "schema_version": "1.0",
+      "candidate_id": "mobileclip2_v7_score",
+      "method": "mobileclip2_v7_score",
+      "family": "transfer",
+      "description": "Trained MobileCLIP2-S0 adapter (KONIQ) for the score + measurement defect head. Reproduction baseline for the frozen protocol.",
+      "expected_gain": "real continuous score (PLCC), 22.9 MB fp16",
+      "cost_estimate": "~2 min GPU",
+      "failure_conditions": [
+        "defect head is still the rule head; domain shift on pseudo-MOS"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    },
+    {
+      "schema_version": "1.0",
+      "candidate_id": "multitask_adapter",
+      "method": "multitask_adapter",
+      "family": "finetune",
+      "description": "Frozen MobileCLIP2-S0 + trainable score head + 5-way multi-label defect head trained on the dev split (GPU).",
+      "expected_gain": "targets the defect Macro-F1 gate directly",
+      "cost_estimate": "~3-5 min GPU",
+      "failure_conditions": [
+        "rare-class imbalance",
+        "wb unlabelled on dev"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    }
+  ],
+  "hypotheses": [
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: blur, over_exp, under_exp, flare.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1."
+  ],
+  "controls": [
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v1",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir).",
+    "source": "qaa_iqa_frozen_benchmark",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method"
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v1",
+    "primary_metric": "defect_macro_f1",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v1",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params."
+  },
+  "execution_dag": [
+    {
+      "schema_version": "1.0",
+      "step_id": "prepare_assets",
+      "kind": "experiment",
+      "depends_on": [],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "coding",
+      "kind": "coding",
+      "depends_on": [
+        "prepare_assets"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_measure_threshold",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "measure_threshold"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_mobileclip2_v7_score",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "mobileclip2_v7_score"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_multitask_adapter",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "multitask_adapter"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "evaluate",
+      "kind": "evaluation",
+      "depends_on": [
+        "run_measure_threshold",
+        "run_mobileclip2_v7_score",
+        "run_multitask_adapter"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "analyze",
+      "kind": "analysis",
+      "depends_on": [
+        "evaluate"
+      ],
+      "params": {}
+    }
+  ],
+  "change_scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "measure_threshold",
+      "mobileclip2_v7_score",
+      "multitask_adapter"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [],
+    "parameter_space": {
+      "measure_threshold": {},
+      "mobileclip2_v7_score": {},
+      "multitask_adapter": {
+        "epochs": 40,
+        "lr": 0.002,
+        "bce_weight": 1.0,
+        "pos_weight_scale": 1.0
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v1",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 0,
+      "max_fix_attempts": 3,
+      "max_experiments": 24,
+      "max_epochs": 200,
+      "max_wall_clock_s": 5400.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 4,
+      "max_iterations": 4
+    },
+    "max_iterations": 4,
+    "approval_mode": "scoped_auto"
+  },
+  "cost_estimate": "{'cloud_tokens': 0, 'currency': 'USD', 'source': 'offline'}",
+  "stop_rules": {
+    "schema_version": "1.0",
+    "require_all_hard_constraints": true,
+    "min_metric_delta": 0.0,
+    "max_no_improve": 4
+  },
+  "created_at": "2026-10-08T12:53:05.193475+00:00"
+}

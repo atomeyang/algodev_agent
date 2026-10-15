@@ -1,0 +1,12 @@
+{
+  "architecture": "MobileCLIP2-S0 (frozen) + MultiTaskHead(512->256->{score,5xdefect})",
+  "encoder_params_millions": 11.407,
+  "head_params": 133382,
+  "rom": {
+    "ok": true,
+    "rom_mb": 23.08,
+    "budget_mb": 60.0,
+    "headroom_mb": 36.92,
+    "basis": "params_fp16_estimate"
+  }
+}

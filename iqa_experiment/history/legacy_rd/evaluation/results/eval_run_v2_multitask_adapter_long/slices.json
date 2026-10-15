@@ -1,0 +1,32 @@
+{
+  "blur": {
+    "f1": 0.5429,
+    "precision": 0.4645,
+    "recall": 0.6533,
+    "gt_pos": 150.0
+  },
+  "over_exp": {
+    "f1": 0.3256,
+    "precision": 0.2887,
+    "recall": 0.3733,
+    "gt_pos": 75.0
+  },
+  "under_exp": {
+    "f1": 0.3465,
+    "precision": 0.2458,
+    "recall": 0.5867,
+    "gt_pos": 75.0
+  },
+  "flare": {
+    "f1": 0.4,
+    "precision": 0.2857,
+    "recall": 0.6667,
+    "gt_pos": 9.0
+  },
+  "white_balance": {
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "gt_pos": 0.0
+  }
+}

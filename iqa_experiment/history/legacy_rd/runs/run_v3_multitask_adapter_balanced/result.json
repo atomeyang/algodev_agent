@@ -1,0 +1,64 @@
+{
+  "method": "multitask_adapter",
+  "split": "test",
+  "seed": 7,
+  "n_eval": 610,
+  "n_train": 325,
+  "n_val": 85,
+  "synthetic": false,
+  "device": "cuda",
+  "rom_params_millions": 11.54,
+  "rom": {
+    "ok": true,
+    "rom_mb": 23.08,
+    "budget_mb": 60.0,
+    "headroom_mb": 36.92,
+    "basis": "params_fp16_estimate"
+  },
+  "best_epoch": 8,
+  "internal_val": {
+    "macro_f1": 0.7041,
+    "plcc": 0.5203
+  },
+  "defect_thresholds": {
+    "blur": 0.55,
+    "over_exp": 0.475,
+    "under_exp": 0.525,
+    "flare": 0.6
+  },
+  "trained_defect_classes": [
+    "blur",
+    "over_exp",
+    "under_exp",
+    "flare"
+  ],
+  "score_calibration": {
+    "a": 26.3283,
+    "b": 38.5743
+  },
+  "wall_clock_s": 136.4,
+  "metrics": {
+    "val_macro_f1": 0.7041,
+    "val_plcc": 0.5203
+  },
+  "config": {
+    "epochs": 60,
+    "lr": 0.0012,
+    "weight_decay": 0.01,
+    "hidden": 256,
+    "dropout": 0.25,
+    "batch_size": 64,
+    "bce_weight": 2.5,
+    "l1_weight": 0.5,
+    "pos_weight_scale": 2.0,
+    "min_pos_weight": 1.0,
+    "max_pos_weight": 40.0,
+    "defect_threshold": 0.5,
+    "tune_thresholds": true,
+    "image_size": 256,
+    "feature_batch": 32
+  },
+  "pred_path": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_rd/iqa_rd_experiment/runs/run_v3_multitask_adapter_balanced/pred_test.json",
+  "note": "frozen MobileCLIP2-S0 encoder + trained score/defect heads; headline metrics computed by the independent evaluator",
+  "status": "succeeded"
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "packet_id": "pkt_ca106913eb",
+  "task_id": "iqa_rd",
+  "plan_id": "p003",
+  "baseline_id": "m_measure_threshold",
+  "requirement": "轻量双输出 IQA 模型研发：ROM < 60MB fp16，输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；缺陷 Macro-F1 >= 0.85，PLCC/SRCC >= 0.90，分档一致率 >= 0.90，hardcase Macro-F1 >= 0.85，参考 iqa_agent 的冻结基准与 MobileCLIP2-S0 方案。",
+  "metric_delta": {
+    "support_white_balance": 0.0,
+    "f1_white_balance": 0.0,
+    "n_labeled": 0.0,
+    "srcc": -0.085,
+    "hardcase_macro_f1": 0.016,
+    "grade_agreement": 0.241,
+    "support_blur": 0.0,
+    "f1_under_exp": -0.3226,
+    "support_under_exp": 0.0,
+    "plcc": -0.0964,
+    "f1_over_exp": -0.5591,
+    "f1_blur": 0.0154,
+    "n_scored": 0.0,
+    "rom_ok": 0.0,
+    "defect_macro_f1_cov": -0.1376,
+    "support_flare": 0.0,
+    "f1_flare": 0.3158,
+    "n_matched": 0.0,
+    "rom_mb": 0.16,
+    "defect_macro_f1": -0.1101,
+    "hardcase_macro_f1_cov": 0.02,
+    "support_over_exp": 0.0
+  },
+  "slices": {
+    "blur": {
+      "f1": 0.5674,
+      "gt_pos": 150.0,
+      "precision": 0.4063,
+      "recall": 0.94
+    },
+    "flare": {
+      "f1": 0.0,
+      "gt_pos": 9.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "over_exp": {
+      "f1": 0.8811,
+      "gt_pos": 75.0,
+      "precision": 0.9265,
+      "recall": 0.84
+    },
+    "under_exp": {
+      "f1": 0.6714,
+      "gt_pos": 75.0,
+      "precision": 0.7231,
+      "recall": 0.6267
+    },
+    "white_balance": {
+      "f1": 0.0,
+      "gt_pos": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  },
+  "failures": [
+    "plcc_ok",
+    "srcc_ok",
+    "defect_ok",
+    "defect_ok_covered",
+    "hardcase_ok",
+    "grade_ok"
+  ],
+  "counterexamples": [
+    "low-light samples with interaction term"
+  ],
+  "unknowns": [
+    "white_balance has no positives on the frozen eval split -> not measurable here",
+    "pseudo-MOS (severity-quantised) used as score ground truth, not real MOS",
+    "no on-device latency measurement in this run (ROMM estimate only)"
+  ],
+  "refs": [],
+  "created_at": "2026-10-08T12:57:54.824824+00:00"
+}

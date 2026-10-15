@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "eval_id": "eval_run_v2_score_moe_meta",
+  "task_id": "iqa",
+  "model_id": "m_score_moe_meta",
+  "protocol_id": "iqa_frozen_v2",
+  "dataset_version": "v2",
+  "metrics": {
+    "defect_macro_f1": 0.424,
+    "defect_macro_f1_cov": 0.53,
+    "hardcase_macro_f1": 0.5188,
+    "hardcase_macro_f1_cov": 0.6485,
+    "plcc": 0.6703,
+    "srcc": 0.6823,
+    "grade_agreement": 0.6197,
+    "n_matched": 610.0,
+    "n_scored": 610.0,
+    "n_labeled": 610.0,
+    "f1_blur": 0.5674,
+    "support_blur": 150.0,
+    "f1_over_exp": 0.8811,
+    "support_over_exp": 75.0,
+    "f1_under_exp": 0.6714,
+    "support_under_exp": 75.0,
+    "f1_flare": 0.0,
+    "support_flare": 9.0,
+    "f1_white_balance": 0.0,
+    "support_white_balance": 0.0,
+    "rom_mb": 22.92,
+    "rom_ok": 1.0
+  },
+  "slices": {
+    "blur": {
+      "f1": 0.5674,
+      "precision": 0.4063,
+      "recall": 0.94,
+      "gt_pos": 150.0
+    },
+    "over_exp": {
+      "f1": 0.8811,
+      "precision": 0.9265,
+      "recall": 0.84,
+      "gt_pos": 75.0
+    },
+    "under_exp": {
+      "f1": 0.6714,
+      "precision": 0.7231,
+      "recall": 0.6267,
+      "gt_pos": 75.0
+    },
+    "flare": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 9.0
+    },
+    "white_balance": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "gt_pos": 0.0
+    }
+  },
+  "resources": {
+    "device": "cpu",
+    "synthetic_demo": false,
+    "gpu": true,
+    "rom_budget_mb": 60.0,
+    "rom": {
+      "ok": true,
+      "rom_mb": 22.92,
+      "budget_mb": 60.0,
+      "headroom_mb": 37.08,
+      "basis": "params_fp16_estimate"
+    }
+  },
+  "failures": [
+    "plcc_ok",
+    "srcc_ok",
+    "defect_ok",
+    "defect_ok_covered",
+    "hardcase_ok",
+    "grade_ok"
+  ],
+  "passed": false,
+  "synthetic": false,
+  "notes": "frozen IQA protocol; independent metric code (parity-checked with iqa_agent.tools.iqa_model.evaluate); classes with < 5 GT positives are not measurable on this frozen split: ['white_balance'] (their F1 is scored 0 by convention, which caps the all-class macro-F1 at 0.80 even at perfect F1 elsewhere)",
+  "created_at": "2026-10-09T07:08:17.592730+00:00"
+}

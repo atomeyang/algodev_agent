@@ -1,0 +1,115 @@
+{
+  "schema_version": "1.0",
+  "task_id": "iqa_rd",
+  "task_slug": "iqa_rd",
+  "domain": "iqa",
+  "business": "轻量双输出 IQA 模型研发：ROM < 60MB fp16，输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；缺陷 Macro-F1 >= 0.85，PLCC/SRCC >= 0.90，分档一致率 >= 0.90，hardcase Macro-F1 >= 0.85，参考 iqa_agent 的冻结基准与 MobileCLIP2-S0 方案。",
+  "inputs": [
+    "rgb_image_256"
+  ],
+  "outputs": [
+    "quality_score_0_100",
+    "defect_multilabel_5"
+  ],
+  "target_hardware": "mobile",
+  "precision": "fp16",
+  "hard_constraints": [
+    {
+      "schema_version": "1.0",
+      "name": "rom_mb_fp16",
+      "value": 60.0,
+      "unit": "MB",
+      "measurement_scope": "fp16 deployment package (encoder + heads; text tower dropped)",
+      "blocking": true
+    },
+    {
+      "schema_version": "1.0",
+      "name": "dual_output",
+      "value": "score+defects",
+      "unit": "",
+      "measurement_scope": "inference API",
+      "blocking": true
+    },
+    {
+      "schema_version": "1.0",
+      "name": "latency_ms",
+      "value": 120.0,
+      "unit": "ms",
+      "measurement_scope": "single 256x256 crop, mobile-class device",
+      "blocking": false
+    }
+  ],
+  "primary_metric": {
+    "schema_version": "1.0",
+    "name": "defect_macro_f1",
+    "direction": "max",
+    "threshold": 0.85,
+    "unit": "F1",
+    "protocol_id": "iqa_frozen_v1",
+    "measured_on": "dev",
+    "unknown": false
+  },
+  "secondary_metrics": [
+    {
+      "schema_version": "1.0",
+      "name": "plcc",
+      "direction": "max",
+      "threshold": 0.9,
+      "unit": "r",
+      "protocol_id": "",
+      "measured_on": null,
+      "unknown": false
+    },
+    {
+      "schema_version": "1.0",
+      "name": "srcc",
+      "direction": "max",
+      "threshold": 0.9,
+      "unit": "r",
+      "protocol_id": "",
+      "measured_on": null,
+      "unknown": false
+    },
+    {
+      "schema_version": "1.0",
+      "name": "hardcase_macro_f1",
+      "direction": "max",
+      "threshold": 0.85,
+      "unit": "",
+      "protocol_id": "",
+      "measured_on": null,
+      "unknown": false
+    },
+    {
+      "schema_version": "1.0",
+      "name": "grade_agreement",
+      "direction": "max",
+      "threshold": 0.9,
+      "unit": "",
+      "protocol_id": "",
+      "measured_on": null,
+      "unknown": false
+    }
+  ],
+  "budget": {
+    "schema_version": "1.0",
+    "max_research_calls": 3,
+    "max_coding_calls": 0,
+    "max_fix_attempts": 3,
+    "max_experiments": 24,
+    "max_epochs": 200,
+    "max_wall_clock_s": 5400.0,
+    "max_cloud_tokens": 400000,
+    "max_no_improve": 4,
+    "max_iterations": 4
+  },
+  "unknowns": [
+    "white_balance has no positives on the frozen eval split -> not measurable here",
+    "pseudo-MOS (severity-quantised) used as score ground truth, not real MOS",
+    "no on-device latency measurement in this run (ROMM estimate only)"
+  ],
+  "demo": false,
+  "synthetic": false,
+  "source": "natural_language",
+  "created_at": "2026-10-08T12:38:47.492927+00:00"
+}

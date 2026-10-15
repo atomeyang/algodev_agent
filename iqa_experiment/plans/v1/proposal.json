@@ -1,0 +1,204 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "p001",
+  "task_id": "iqa",
+  "version": "v1",
+  "parent_plan_id": null,
+  "summary": "# IQA research & design (iteration 1)\n\n> OFFLINE MODE: no live literature search or cloud model was used. Candidates and thresholds come from the local IQA workspace + the requirement report; all results are labelled with their real provenance (frozen pseudo-MOS benchmark).\n\n## Business objective\n轻量双输出 IQA 模型研发（ROM < 60MB fp16）：输出 0-100 质量分与 blur/over_exp/under_exp/flare/white_balance 五类缺陷多标签；主指标 ",
+  "evidence_refs": [
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/benchmark",
+    "/mnt/data/yangt/codes/QAA/iqa_agent/_work/registry/baseline.json",
+    "IQA轻量双输出模型选型与数据集构建深度调研报告.docx"
+  ],
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "mobileclip2_v7_score",
+      "method": "mobileclip2_v7_score",
+      "family": "transfer",
+      "description": "Trained MobileCLIP2-S0 adapter (KONIQ) for the score + measurement defect head. Reproduction baseline for the frozen protocol.",
+      "expected_gain": "real continuous score (PLCC), 22.9 MB fp16",
+      "cost_estimate": "~2 min GPU",
+      "failure_conditions": [
+        "defect head is still the rule head; domain shift on pseudo-MOS"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    },
+    {
+      "schema_version": "1.0",
+      "candidate_id": "score_moe",
+      "method": "score_moe",
+      "family": "score-head+MoE",
+      "description": "Three-view score head: global ET/RF regression, a 4-class posterior E[score], and a coarse-degradation-family MoE (gate + router + per-family experts), blended with weights chosen by subject-group CV on dev only.",
+      "expected_gain": "best honest PLCC frontier; auditable decomposition",
+      "cost_estimate": "~2-4 min CPU",
+      "failure_conditions": [
+        "PLCC is capped by the good-vs-defective gate (ROC-AUC ~0.85) and the filename-hash noise in the good-image pseudo-MOS, so ~0.85 needs ~0.86 4-level accuracy and is at the structural ceiling"
+      ],
+      "ablations": [],
+      "evidence_refs": [],
+      "is_baseline": false,
+      "source": "local"
+    }
+  ],
+  "hypotheses": [
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: none identified yet.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1."
+  ],
+  "controls": [
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v1",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir). Label-gap classes are filled offline: local_largemodel/qwen3.8-27b proposes candidate defect labels (scripts/iqa_annotate.py, prompt iqa-prelabel-v1) and every candidate goes through human review before it can enter a dataset version; classes with no measurable support receive severity-matched augmentation (see the data plan in the research report).",
+    "source": "qaa_iqa_frozen_benchmark + local_vlm_prelabels(qwen3.8-27b) + severity-matched augmentation",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)",
+      "human-reviewed local-VLM pre-labels (provenance: model_id+prompt_version)",
+      "train-split-only augmentation for zero/low-support classes"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method; augmentation never touches the frozen eval in the same protocol version"
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v1",
+    "primary_metric": "plcc",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v1",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params."
+  },
+  "execution_dag": [
+    {
+      "schema_version": "1.0",
+      "step_id": "prepare_assets",
+      "kind": "experiment",
+      "depends_on": [],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "coding",
+      "kind": "coding",
+      "depends_on": [
+        "prepare_assets"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_mobileclip2_v7_score",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "mobileclip2_v7_score"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_score_moe",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "score_moe"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "evaluate",
+      "kind": "evaluation",
+      "depends_on": [
+        "run_mobileclip2_v7_score",
+        "run_score_moe"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "analyze",
+      "kind": "analysis",
+      "depends_on": [
+        "evaluate"
+      ],
+      "params": {}
+    }
+  ],
+  "change_scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "mobileclip2_v7_score",
+      "score_moe"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [],
+    "parameter_space": {
+      "mobileclip2_v7_score": {},
+      "score_moe": {
+        "use_metadata": false,
+        "ensemble_seeds": 3,
+        "cv_folds": 4,
+        "blend_step": 0.1
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v1",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 0,
+      "max_fix_attempts": 3,
+      "max_experiments": 24,
+      "max_epochs": 200,
+      "max_wall_clock_s": 5400.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 4,
+      "max_iterations": 4
+    },
+    "max_iterations": 4,
+    "approval_mode": "scoped_auto"
+  },
+  "cost_estimate": "{'cloud_tokens': 0, 'currency': 'USD', 'source': 'offline'}",
+  "stop_rules": {
+    "schema_version": "1.0",
+    "require_all_hard_constraints": true,
+    "min_metric_delta": 0.0,
+    "max_no_improve": 4
+  },
+  "created_at": "2026-10-09T07:02:08.113415+00:00"
+}

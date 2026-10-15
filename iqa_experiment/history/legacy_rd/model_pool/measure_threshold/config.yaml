@@ -1,0 +1,5 @@
+{
+  "method": "measure_threshold",
+  "impl": "measure_threshold.py",
+  "config": {}
+}

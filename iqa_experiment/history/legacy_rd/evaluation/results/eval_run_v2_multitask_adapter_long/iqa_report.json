@@ -1,0 +1,72 @@
+{
+  "per_defect_f1": {
+    "blur": 0.5429,
+    "over_exp": 0.3256,
+    "under_exp": 0.3465,
+    "flare": 0.4,
+    "white_balance": 0.0
+  },
+  "per_defect_precision": {
+    "blur": 0.4645,
+    "over_exp": 0.2887,
+    "under_exp": 0.2458,
+    "flare": 0.2857,
+    "white_balance": 0.0
+  },
+  "per_defect_recall": {
+    "blur": 0.6533,
+    "over_exp": 0.3733,
+    "under_exp": 0.5867,
+    "flare": 0.6667,
+    "white_balance": 0.0
+  },
+  "class_support": {
+    "blur": 150,
+    "over_exp": 75,
+    "under_exp": 75,
+    "flare": 9,
+    "white_balance": 0
+  },
+  "covered_defects": [
+    "blur",
+    "over_exp",
+    "under_exp",
+    "flare"
+  ],
+  "defect_macro_f1": 0.323,
+  "defect_macro_f1_cov": 0.4037,
+  "hardcase_macro_f1": 0.5507,
+  "hardcase_macro_f1_cov": 0.6883,
+  "plcc": 0.3039,
+  "srcc": 0.3118,
+  "grade_agreement": 0.4672,
+  "n_labeled": 610,
+  "n_matched": 610,
+  "n_scored": 610,
+  "gates": {
+    "plcc_ok": false,
+    "srcc_ok": false,
+    "defect_ok": false,
+    "defect_ok_covered": false,
+    "hardcase_ok": false,
+    "grade_ok": false
+  },
+  "floors": {
+    "plcc": 0.9,
+    "srcc": 0.9,
+    "defect_macro_f1": 0.85,
+    "hardcase_macro_f1": 0.85,
+    "grade_agreement": 0.9
+  },
+  "coverage_note": "classes with < 5 GT positives are not measurable on this frozen split: ['white_balance'] (their F1 is scored 0 by convention, which caps the all-class macro-F1 at 0.80 even at perfect F1 elsewhere)",
+  "pass": false,
+  "rom": {
+    "ok": true,
+    "rom_mb": 23.08,
+    "budget_mb": 60.0,
+    "headroom_mb": 36.92,
+    "basis": "params_fp16_estimate"
+  },
+  "rom_ok": true,
+  "rom_mb": 23.08
+}

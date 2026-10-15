@@ -1,0 +1,36 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# --- generated runtime state (all under runtimes/) ---
+runtimes/state/
+runtimes/coding/workspaces/
+runtimes/evidence/cache/
+runtimes/execution/jobs/
+runtimes/execution/artifacts/
+!runtimes/**/.gitkeep
+
+# --- local auxiliary LLMs (weights/adapters are large binaries) ---
+local_auxmodels/*/weights/*
+local_auxmodels/*/adapters/*
+local_largemodel/*/weights/*
+local_largemodel/*/adapters/*
+!local_auxmodels/**/.gitkeep
+!local_largemodel/**/.gitkeep
+
+# --- per-task workspaces ---
+**/data/raw/
+**/data/releases/
+**/.iqa_cache/
+*_experiment/model_pool/*/weights/
+!shared_assets/**/.gitkeep
+.pytest_cache/
+*.sqlite
+*.db
+docs/*.tmp

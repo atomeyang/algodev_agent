@@ -1,0 +1,1 @@
+{"status": "failed", "error": "FileNotFoundError('missing backbone (/mnt/data/yangt/codes/QAA/iqa_agent/models/mobileclip2_s0.pt) or adapter (plugin default (config.adapter_ckpt()))')"}

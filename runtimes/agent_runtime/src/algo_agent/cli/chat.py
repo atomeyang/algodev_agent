@@ -33,16 +33,21 @@ Available commands:
   /events [n]                show the last n events
   /export                    export overview + iteration docs
   /attach <path>             register a local file as an evidence reference (embedded mode)
+  /mode auto|manual          mode for newly created tasks
+  /readiness                 show models and missing execution prerequisites
+  /memory                    show retrieved development lessons
   /help                      show this help
   /quit                      exit (Ctrl+D also works)
 """
 
 
 class ChatSession:
-    def __init__(self, settings: Settings, client: ControlClient, *, task_id: Optional[str] = None):
+    def __init__(self, settings: Settings, client: ControlClient, *, task_id: Optional[str] = None,
+                 auto_process: bool = False):
         self.settings = settings
         self.client = client
         self.task_id = task_id
+        self.auto_process = auto_process
         self._history_file = settings.state_dir / "chat_history"
 
     # ---- entry point --------------------------------------------------- #
@@ -124,8 +129,22 @@ class ChatSession:
             else:
                 self._maybe_run()
             return
-        # Plain text is a question: answer it from the live, grounded state.
+        if hasattr(self.client, "message"):
+            self._message(text)
+            return
+        # Compatibility with clients predating the typed message endpoint.
         self._answer(text)
+
+    def _message(self, text: str) -> None:
+        result = self.client.message(self._need_task(), text)
+        action = (result.get("intent") or {}).get("action", "query")
+        if result.get("answer"):
+            render.answer_text(text, result["answer"], source=result.get("source", action),
+                               model=result.get("model", ""))
+        elif result.get("state"):
+            render.state_panel(result["state"])
+        else:
+            self._show_status()
 
     def _grounded(self):
         task_id = self._need_task()
@@ -150,10 +169,13 @@ class ChatSession:
     def _design_doc(self) -> str:
         try:
             from ..paths import TaskPaths, slugify
-            research = TaskPaths(self.settings, slugify(self.task_id)).root / "docs" / "research"
-            docs = sorted(research.glob("research_iter*.md")) if research.is_dir() else []
-            if docs:
-                return str(docs[-1])
+            state = self.client.state(self.task_id)
+            slug = (state.get("task") or {}).get("task_slug") or slugify(self.task_id)
+            research = TaskPaths(self.settings, slug).root / "docs" / "research"
+            from ..memory import latest_research
+            doc = latest_research(research)
+            if doc:
+                return str(doc)
         except Exception:  # pragma: no cover - defensive
             pass
         return ""
@@ -165,11 +187,11 @@ class ChatSession:
         if not m:
             return ""
         return (
-            "**实测(本轮 Evaluator,冻结官方真实 MOS 测试集)**\n\n"
-            f"- best model: `{st.get('best_model_id')}`  passed: `{(best or {}).get('passed')}`"
+            "**实测 (Evaluator 记录)**\n\n"
+            f"- model: `{(best or {}).get('model_id')}`  passed: `{(best or {}).get('passed')}`"
+            f"  stage: `{(best or {}).get('stage', 'legacy')}`"
             f"  n_scored: {m.get('n_scored')}\n"
-            f"- plcc = {m.get('plcc')} (floor 0.85)  srcc = {m.get('srcc')} (floor 0.85)\n"
-            f"- grade_agreement = {m.get('grade_agreement')}  rom_mb = {m.get('rom_mb')}\n\n"
+            + "\n".join(f"- {key} = {value}" for key, value in m.items()) + "\n\n"
             "*下表为设计阶段(迭代 1 开始前)的参考基线快照,仅作起点对照:*\n\n"
         )
 
@@ -208,8 +230,8 @@ class ChatSession:
                 f"- task: `{st.get('task_id')}`  phase: `{st.get('phase')}`  "
                 f"plan: `{st.get('active_plan_id')}`\n"
                 f"- best model: `{st.get('best_model_id')}`\n"
-                f"- metrics: plcc={m.get('plcc')} srcc={m.get('srcc')} "
-                f"grade_agreement={m.get('grade_agreement')} rom_mb={m.get('rom_mb')}\n"
+                f"- evaluation stage: `{(best or {}).get('stage', 'legacy')}`\n"
+                f"- metrics: {m}\n"
             )
             if doc:
                 body += f"- design report: `{doc}`"
@@ -246,11 +268,14 @@ class ChatSession:
         if not self.task_id:
             self._do_new(goal)
             return
+        if hasattr(self.client, "message"):
+            self._message("改进 " + goal)
+            return
         st = self.client.state(self.task_id)
         best = st.get("best_model_id") or ""
         if st.get("phase") in ControlClient.TERMINAL_PHASES:
-            request = (f"IQA 继续改进:在 {self.task_id} 的最佳模型 {best} 基础上,{goal} "
-                       f"主指标 PLCC/SRCC,冻结官方真实 MOS 测试集,不降低 ROM 与缺陷约束。")
+            request = (f"继续改进:在 {self.task_id} 的最佳模型 {best} 基础上,{goal} "
+                       "保持验收标准，重新明确独立评测数据和领域约束。")
             render.info(f"task {self.task_id} is terminal ({st.get('phase')}); starting a new task")
             self._do_new(request)
             return
@@ -276,15 +301,27 @@ class ChatSession:
             render.state_panel(st)
             return
         if st.get("phase") not in ControlClient.TERMINAL_PHASES and not st.get("paused"):
+            if hasattr(self.client, "start_background"):
+                try:
+                    self.client.start_background(self.task_id)
+                    render.info("task running; /status and /events remain available")
+                except ClientError as exc:
+                    render.warn(exc.message)
+                return
             boundary = self.client.run(self.task_id)
             self._boundary(boundary)
 
     def _do_new(self, text: str, *, demo: bool = False) -> None:
-        created = self.client.create_task(text, demo=demo, synthetic=demo)
+        options = {"auto_process": True} if self.auto_process else {}
+        created = self.client.create_task(text, demo=demo, synthetic=demo, **options)
         self.task_id = created["task_id"]
         render.info(f"created task {self.task_id} (slug={created['task_slug']})")
-        boundary = self.client.run(self.task_id, raw_text=text)
-        self._boundary(boundary)
+        if hasattr(self.client, "start_background"):
+            self.client.start_background(self.task_id, raw_text=text)
+            render.info("task running; /status and /events remain available")
+        else:
+            boundary = self.client.run(self.task_id, raw_text=text)
+            self._boundary(boundary)
 
     # ---- commands ------------------------------------------------------ #
     def _dispatch(self, line: str) -> Optional[str]:
@@ -334,6 +371,9 @@ class ChatSession:
         elif cmd == "/feedback":
             self._feedback(args)
         elif cmd in ("/pause", "/resume", "/cancel"):
+            if hasattr(self.client, "message"):
+                self._message(cmd[1:])
+                return None
             res = self.client.control(self._need_task(), cmd[1:])
             render.info(f"{cmd}: {res.get('note', 'ok')}")
             if res.get("boundary"):
@@ -350,6 +390,16 @@ class ChatSession:
                 render.info(f"{key}: {path}")
         elif cmd == "/attach":
             self._attach(args)
+        elif cmd == "/mode":
+            if args not in (["auto"], ["manual"]):
+                render.warn("usage: /mode auto|manual")
+            else:
+                self.auto_process = args[0] == "auto"
+                render.info(f"new task mode: {args[0]}; existing task contracts are unchanged")
+        elif cmd == "/readiness":
+            render.console.print(self.client.readiness())
+        elif cmd == "/memory":
+            render.console.print(self.client.memory(self._need_task()))
         else:
             render.warn(f"unknown command {cmd}; try /help")
         return None
@@ -452,8 +502,9 @@ def _pick_sections(question: str, sections: List[Dict[str, str]]):
     return picked
 
 
-def run_chat(settings: Settings, client: ControlClient, task_id: Optional[str] = None) -> int:
-    return ChatSession(settings, client, task_id=task_id).run()
+def run_chat(settings: Settings, client: ControlClient, task_id: Optional[str] = None,
+             auto_process: bool = False) -> int:
+    return ChatSession(settings, client, task_id=task_id, auto_process=auto_process).run()
 
 
 __all__ = ["ChatSession", "run_chat", "HELP"]

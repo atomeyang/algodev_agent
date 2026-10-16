@@ -3,7 +3,11 @@
   "task_slug": "iqa",
   "members": {
     "iqa_mos": "tracks/mos",
-    "iqa_rd": "history/legacy_rd"
+    "iqa_rd": "history/legacy_rd",
+    "iqa_dialogue_20261015": "tracks/dialogue_validation_20261015",
+    "iqa_dialogue_retest_20261015": "tracks/dialogue_retest_20261015",
+    "iqa_dialogue_retest2_20261015": "tracks/dialogue_retest2_20261015",
+    "iqa_dialogue_final_20261015": "tracks/dialogue_final_20261015"
   },
   "relocations": {
     "iqa_annotations": "data/annotations/runs/legacy/pilot",

@@ -7,7 +7,7 @@ diagnosable blocker rather than a fabricated success.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional
 
 from ..schemas import contracts as C
@@ -28,6 +28,7 @@ class SearchResult:
     refs: List[C.EvidenceRef] = field(default_factory=list)
     note: str = ""
     used_search_service: bool = False
+    documents: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -51,6 +52,27 @@ class ResearchDesignResult:
     # verbatim so they survive into research_iter{N}.json instead of being
     # silently dropped by the dataclass field filter.
     extras: Dict[str, Any] = field(default_factory=dict)
+
+    def payload(self) -> Dict[str, Any]:
+        def encode(value):
+            if hasattr(value, "model_dump"):
+                return value.model_dump(mode="json")
+            if isinstance(value, list):
+                return [encode(v) for v in value]
+            if isinstance(value, dict):
+                return {k: encode(v) for k, v in value.items()}
+            return value
+        return {f.name: encode(getattr(self, f.name)) for f in fields(self)}
+
+    @classmethod
+    def from_payload(cls, payload: Dict[str, Any]):
+        data = dict(payload)
+        data["candidates"] = [C.Candidate(**v) for v in data.get("candidates", [])]
+        data["change_requests"] = [C.ChangeRequest(**v) for v in data.get("change_requests", [])]
+        for key, model in (("data_recipe", C.DataRecipe), ("eval_protocol", C.EvalProtocol)):
+            if data.get(key):
+                data[key] = model(**data[key])
+        return cls(**data)
 
 
 @dataclass

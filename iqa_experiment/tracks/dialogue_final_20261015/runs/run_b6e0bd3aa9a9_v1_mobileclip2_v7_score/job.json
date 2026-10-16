@@ -1,0 +1,63 @@
+{
+  "code_hashes": {
+    "method/METHOD_SOURCE": "5ae266ecc50731d249a4976fda4685be025be2f1da36ed5442eb842c9ab2136c",
+    "method/config.yaml": "cc45a3dbf26e58ac8bdfb542fa1b57e543c51fe134f462216fe78ba915d727a7",
+    "method/method.py": "3b7ef36bc4fbfde10a7dd0516b93802890893da6296beb8f1a575829ef25f86c",
+    "plugins/algorithm_plugins/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "plugins/algorithm_plugins/common/__init__.py": "21fd11b9069990b917ddef280b8c6a72b47ead543e2b0b1cb61908323f5617c4",
+    "plugins/algorithm_plugins/common/plugin.py": "faa54ad8a991e9186baa3c5a3df4beddaea3a1c17553aee25068cf94ee86d02d",
+    "plugins/algorithm_plugins/demo_tabular/__init__.py": "f5439616901d9a968da57bc8b0d2413975012a4e3499240b6d19c8361b29a09c",
+    "plugins/algorithm_plugins/demo_tabular/methods.py": "957e9bf392500f5820d609a73c2a635d3e757254f61b70b91f10dfe897dfa58e",
+    "plugins/algorithm_plugins/demo_tabular/plugin.py": "064b4e86a34e2adf0896f9a14b75fd20f727ec671506e224158e45ba2ead1c37",
+    "plugins/algorithm_plugins/iqa/__init__.py": "c21dcbb1f9eb95778f578dd05f42edf8df78f73bf3ce335e525a8cc53c00c449",
+    "plugins/algorithm_plugins/iqa/annotation.py": "f53220f7336d7fbae06badcda6c94827cfc7f42fcff75d4e2fabb9995cdd81b9",
+    "plugins/algorithm_plugins/iqa/config.py": "bb76b345218ac3c647446edf205b01ded8686874a7516c995773c94b8e81ff19",
+    "plugins/algorithm_plugins/iqa/data.py": "e4967a10871bed9816706fc2f2b65e7cbd2046a631d40170097eebefe75db865",
+    "plugins/algorithm_plugins/iqa/features.py": "79f7c06653c3e31c864be3546fedc8c7ac965aa6089f23361d6bf74433a757ba",
+    "plugins/algorithm_plugins/iqa/methods/__init__.py": "446cb329ad0c15e25fdf6ee2d9a951027f890d8a0ada84c466da1fbb1232c117",
+    "plugins/algorithm_plugins/iqa/methods/baseline_mean.py": "8cd3f89c4b0c078ead194779db9679c386998a256b8fa9ddadb9a1db2bcf8109",
+    "plugins/algorithm_plugins/iqa/methods/clip_backbone.py": "2edf1503a50959abeca02907e31f47de8be00f36dbe51d7eb2fc6ec6e17ed253",
+    "plugins/algorithm_plugins/iqa/methods/common.py": "6c80974f7f5e710b881e645b79069fba0e8f7568df21164478fb34a903aeee93",
+    "plugins/algorithm_plugins/iqa/methods/measure_lib.py": "ed70fe0fb41ef8b6ba6207c0d1095510f0c5f36ebe7ac5c210e13e28e0f9a6a4",
+    "plugins/algorithm_plugins/iqa/methods/measure_threshold.py": "160094379dd3e62f1f856027def809b59abd7c0e2dfc8537034c6c0b33edbd5a",
+    "plugins/algorithm_plugins/iqa/methods/mobileclip2_v7_score.py": "d64ea9a84994528e50fdedc3482ba2286d9f4346ead3c04f16c000df6a2482c4",
+    "plugins/algorithm_plugins/iqa/methods/multitask_adapter.py": "02c949fb54e7b83ed6cb1b9888a37fc443cae4ca1b791166f8698cf70e6efd61",
+    "plugins/algorithm_plugins/iqa/methods/score_moe.py": "07ae4a4c27939ef70c1031e6689ed300a8ee59340cf554b12ba1623591c248c3",
+    "plugins/algorithm_plugins/iqa/methods/score_mos_transfer.py": "74461dcbfa8a7c812af56f82aa2b527d53eea81b73e6f1a059a911cc91ba916f",
+    "plugins/algorithm_plugins/iqa/methods/score_ordinal_sft.py": "6c9e64cd6e81f9a5eeaf2052b18390b00c6a5c62c66854bf472787a7ac871dbf",
+    "plugins/algorithm_plugins/iqa/metrics.py": "337d291d0c27b70042b3d2953ce6af5d9f51b794bc4df77bb089099f2554c512",
+    "plugins/algorithm_plugins/iqa/plans.py": "641bc8a117278eedad3f46b6845b6263fa2a20001bae594f38c6408a86ba0d52",
+    "plugins/algorithm_plugins/iqa/plugin.py": "f23a26899f7affa70e38bbf232b4793e13188205b432bfb859002506374ba810",
+    "plugins/algorithm_plugins/registry.py": "d0fcce6632884bfe6210f202745ec0995b06ea27393f0f5b900fa9eb8e02240d"
+  },
+  "config": {
+    "defect_head": "measurement_rule_zero_rom",
+    "epochs": 40,
+    "feature_batch": 32,
+    "image_size": 256,
+    "mlp_max_iter": 40,
+    "n_eval_expected": 85,
+    "score_ckpt": "plugin default (config.adapter_ckpt())",
+    "seed": 7
+  },
+  "data_version": "v1",
+  "inference_weights": "",
+  "method": "mobileclip2_v7_score",
+  "method_entry": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/runs/run_b6e0bd3aa9a9_v1_mobileclip2_v7_score/code/method/method.py",
+  "resource_limits": {
+    "memory_mb": 0,
+    "output_file_mb": 2048
+  },
+  "run_id": "run_b6e0bd3aa9a9_v1_mobileclip2_v7_score",
+  "runtime_env": {
+    "IQA_BENCHMARK": "pseudo",
+    "QAA_ROOT": "/mnt/data/yangt/codes/QAA"
+  },
+  "seed": 7,
+  "split": "test",
+  "stage": "development",
+  "task_slug": "iqa_dialogue_final_20261015",
+  "release_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/data/releases/v1",
+  "out_dir": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/runs/run_b6e0bd3aa9a9_v1_mobileclip2_v7_score",
+  "task_root": "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015"
+}

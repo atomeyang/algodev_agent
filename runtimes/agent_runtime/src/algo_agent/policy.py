@@ -77,6 +77,25 @@ def acceptance_failures(spec, evaluation) -> list[str]:
     return list(dict.fromkeys(failures))
 
 
+def data_budget_problems(spec, plan, used=None, reserved=None) -> list[str]:
+    """Reject known recipe costs before materialising any part of the recipe."""
+    used, reserved = used or {}, reserved or {}
+    demand = {"data_operations": len(plan.data_recipe.operations),
+              "added_samples": 0, "annotation_samples": 0}
+    for op in plan.data_recipe.operations:
+        field = "count" if op.kind in {"augment", "resample"} else "limit" if op.kind == "annotate" else ""
+        if not field or field not in op.params:
+            continue
+        amount = op.params[field]
+        if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
+            return [f"{op.operation_id}: {field} must be a positive integer"]
+        demand["annotation_samples" if op.kind == "annotate" else "added_samples"] += amount
+    return [f"recipe {key}={amount} exceeds remaining budget "
+            f"{getattr(spec.budget, 'max_' + key) - used.get(key, 0) - reserved.get(key, 0)}"
+            for key, amount in demand.items()
+            if amount + used.get(key, 0) + reserved.get(key, 0) > getattr(spec.budget, "max_" + key)]
+
+
 def plan_problems(spec, plan, previous=None) -> list[str]:
     problems = []
     if not plan.candidates:
@@ -124,4 +143,6 @@ def plan_problems(spec, plan, previous=None) -> list[str]:
             problems.append("plan changed the authorised data sources")
         if plan.change_scope.upload_policy != previous.change_scope.upload_policy:
             problems.append("plan changed the upload policy")
+    if spec.auto_process:
+        problems.extend(data_budget_problems(spec, plan))
     return problems

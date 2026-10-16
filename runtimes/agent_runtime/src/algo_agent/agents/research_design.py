@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from ..config import Settings
 from ..evidence import EvidenceStore, PacketBuilder, EvidenceReader
-from ..paths import DIRECTORY_RULES, TaskPaths, safe_join
+from ..paths import DIRECTORY_RULES, TaskPaths, safe_join, sha256_obj
 from ..policy import check_running, remaining_seconds
 from ..providers import ResearchDesignResult, ResearchProvider
 from ..schemas import contracts as C
@@ -50,8 +50,19 @@ class ResearchDesignAgent:
 
     def run(self, request: ResearchDesignRequest) -> ResearchDesignResult:
         check_running(self.repo, request.task_spec.task_id)
-        self.repo.claim_budget(request.task_spec.task_id, "research_calls", 1,
-                               request.budget.max_research_calls)
+        call_key = f"research:{request.task_spec.task_id}:{request.iteration}"
+        request_hash = sha256_obj({"task": request.task_spec.model_dump(), "parent": request.parent_plan_id,
+                                  "history": request.history, "feedback": request.feedback,
+                                  "slices": request.slices, "methods_hint": request.methods_hint,
+                                  "provider": getattr(self.provider, "name", type(self.provider).__name__),
+                                  "model": getattr(self.provider, "model", "")})
+        completed = self.repo.research_step(call_key + ":completed", request_hash)
+        if completed:
+            return ResearchDesignResult.from_payload(completed)
+        if not self.repo.research_step(call_key, request_hash):
+            self.repo.claim_budget(request.task_spec.task_id, "research_calls", 1,
+                                   request.budget.max_research_calls)
+            self.repo.save_research_step(call_key, request.task_spec.task_id, request_hash, {"started": True})
         invocation_id = request.invocation_id or f"inv_{uuid.uuid4().hex[:10]}"
         baseline = request.parent_plan_id or "base_v1"
         session_id = self.repo.find_session(request.task_spec.task_id, self.role, request.parent_plan_id, baseline) \
@@ -64,22 +75,21 @@ class ResearchDesignAgent:
 
         # --- internal loop 1: search (bounded, single call per invocation) ---
         tool_calls: List[Dict[str, Any]] = []
-        search = self.provider.search_sources(request.task_spec.business or request.task_spec.task_slug,
-                                              request.budget)
-        registered: List[str] = []
-        for ref in search.refs:
-            stored = self.evidence.register_source(
-                request.task_spec.task_id, ref.uri, source_type=ref.source_type, locator=ref.locator,
-                version=ref.version, upload_policy=ref.upload_policy, trust=ref.trust)
-            registered.append(stored.evidence_id)
+        query = (request.task_spec.research_queries or [request.task_spec.domain.replace("_", " ")])[0]
+        search = self._search(request, query)
+        registered = [r["evidence_id"] for r in search["refs"]]
         tool_calls.append({"tool": "search_sources", "refs": len(registered),
-                           "used_search_service": search.used_search_service, "note": search.note})
+                           "used_search_service": search["used_search_service"], "note": search["note"]})
+        if request.task_spec.require_live_research and not (
+                search["used_search_service"] and registered):
+            return ResearchDesignResult(status="blocked", unknowns=[
+                "live research required but source discovery returned no evidence", search["note"]])
 
         # --- internal loop 2: build evidence packet ---
         packet = self.packets.build_packet(
             task_id=request.task_spec.task_id, requirement=request.task_spec.business,
             plan_id=request.parent_plan_id, refs=registered,
-            unknowns=list(request.task_spec.unknowns) + ([search.note] if search.note else []))
+            unknowns=list(request.task_spec.unknowns) + ([search["note"]] if search["note"] else []))
         tool_calls.append({"tool": "build_packet", "refs": len(packet.refs)})
 
         # --- internal loop 3: design ---
@@ -89,15 +99,22 @@ class ResearchDesignAgent:
             "task_spec": request.task_spec.model_dump(),
             "evidence_packet": packet.model_dump(),
             "iteration": request.iteration,
-            "feedback": request.feedback,
-            "history": request.history,
+            "feedback": request.feedback[-16:],
+            "history": request.history[-8:],
             "slices": request.slices,
             "methods_hint": request.methods_hint,
             "constraints": [hc.model_dump() for hc in request.task_spec.hard_constraints],
         }
+        from ..memory import ResearchMemory, bounded_json
+        provider_request["research_memory"] = json.loads(bounded_json(
+            ResearchMemory(self.settings, self.repo).recall(request.task_spec.task_id), 16000))
+        provider_request["search_documents"] = search["documents"]
         provider_request["data_operation_schema"] = C.DataOperation.model_json_schema()
         from ..execution.data_pipeline import operation_capabilities
         provider_request["data_operation_capabilities"] = operation_capabilities(request.task_spec.domain)
+        from algorithm_plugins.registry import hook, resolve_plugin
+        context_files = hook(resolve_plugin(request.task_spec), "coding_context_files")
+        provider_request["reference_code_files"] = list(context_files(request.task_spec)) if context_files else []
         provider_request["data_sources"] = [
             s.model_dump(exclude={"path"}) for s in request.task_spec.data_sources]
         provider_request["available_tools"] = {
@@ -106,18 +123,46 @@ class ResearchDesignAgent:
             "get_code_excerpt": {"path": "model_pool/... or algorithm_plugins/...", "start": 0, "lines": 100},
             "get_run_summary": {"run_id": "development run belonging to this task"},
             "inspect_data": {},
-            "search_assets": {"asset_type": "optional asset type"},
+            "search_assets": {"asset_type": "optional asset type", "query": "optional search terms"},
+            "read_asset": {"asset_id": "registered asset", "version": "version", "filename": "body file"},
+            "recall_lessons": {"query": "hypothesis or bottleneck to investigate"},
         }
         provider_request["observations"] = []
+        provider_request["budget_ledger"] = self.repo.get_budget(request.task_spec.task_id)
+        # Freeze the initial frame so checkpoint replay has stable evidence IDs,
+        # packet timestamps and memory instead of issuing a subtly different query.
+        frame_key = call_key + ":frame"
+        frame = self.repo.research_step(frame_key, request_hash)
+        if frame is None:
+            self.repo.save_research_step(frame_key, request.task_spec.task_id, request_hash, provider_request)
+        else:
+            provider_request = frame
         if hasattr(self.provider, "_chat"):
             provider_request["_chat"] = lambda *a, **kw: self._budgeted_chat(request, *a, **kw)
         remaining = request.budget.max_research_steps if request.task_spec.auto_process else 1
         result = ResearchDesignResult(status="blocked", unknowns=["research step budget exhausted"])
         while remaining > 0:
             check_running(self.repo, request.task_spec.task_id)
+            if remaining <= 2:
+                provider_request["available_tools"] = {}
+                provider_request["finalize_now"] = (
+                    "Tool budget is closed. Return the final executable candidates now, or explicitly "
+                    "state why blocked. At most one format-repair call remains; do not request more tools.")
             remaining -= 1
             provider_request["remaining_steps"] = remaining
             result = self.provider.design(provider_request)
+            if result.status == "completed" and request.task_spec.auto_process:
+                problems = self._plan_problems(request, result)
+                if problems:
+                    tool_calls.append({"tool": "plan_validation", "errors": problems})
+                    provider_request["observations"].append({
+                        "tool": "plan_validation", "errors": problems,
+                        "draft": json.loads(bounded_json({
+                            "candidates": [c.model_dump() for c in result.candidates],
+                            "data_operations": result.extras.get("data_operations", [])}, 12000)),
+                        "instruction": "Repair the plan within the original task contract and budgets."})
+                    result.status = "failed"
+                    result.unknowns.extend(problems)
             if result.status == "failed" and remaining > 0 and request.task_spec.auto_process:
                 provider_request["observations"].append({
                     "tool": "schema_validation", "errors": result.unknowns,
@@ -126,17 +171,39 @@ class ResearchDesignAgent:
             if result.status != "needs_tools":
                 break
             requests = result.extras.get("tool_requests", [])
-            if not isinstance(requests, list) or not requests:
+            if (not isinstance(requests, list) or not requests
+                    or any(not isinstance(c, dict) or not isinstance(c.get("tool"), str)
+                           or not isinstance(c.get("arguments", {}), dict) for c in requests)):
                 result.status = "failed"
                 result.unknowns.append("invalid research tool request")
+                if remaining > 0 and request.task_spec.auto_process:
+                    provider_request["observations"].append({
+                        "tool": "schema_validation",
+                        "errors": ["tool_requests must be a list of {tool: string, arguments: object}"]})
+                    continue
                 break
+            if remaining <= 1:
+                provider_request["observations"].append({
+                    "tool": "budget", "error": "No further tools allowed. Finalise the plan in the next response."})
+                continue
             for call in requests:
-                if remaining <= 0:
+                # Keep one synthesis call and one schema-repair call; tool batches
+                # must not consume the only opportunity to return a plan.
+                if remaining <= 2:
+                    provider_request["observations"].append({
+                        "tool": "budget", "skipped_tools": True,
+                        "instruction": "Remaining tool requests skipped to reserve final plan synthesis."})
                     break
                 remaining -= 1
                 check_running(self.repo, request.task_spec.task_id)
                 try:
-                    observation = self._tool(request, call["tool"], call.get("arguments") or {}, invocation_id)
+                    identity = sha256_obj({"request": request_hash, "call": call})
+                    key = f"{call_key}:tool:{identity}"
+                    observation = self.repo.research_step(key, identity)
+                    if observation is None:
+                        observation = self._tool(request, call["tool"], call.get("arguments") or {}, invocation_id)
+                        if len(json.dumps(observation, ensure_ascii=False)) <= 18000:
+                            self.repo.save_research_step(key, request.task_spec.task_id, identity, observation)
                 except Exception as exc:
                     observation = {"status": "failed", "error": str(exc)[:1000]}
                 # Bound individual observations, without truncating JSON into invalid syntax.
@@ -150,6 +217,7 @@ class ResearchDesignAgent:
             result.status = "blocked"
             result.unknowns.append("research tool/model step budget exhausted before a plan")
         result.tool_calls = tool_calls + list(result.tool_calls)
+        registered = [r.evidence_id for r in self.evidence.list(request.task_spec.task_id)]
         result.evidence_refs = list(dict.fromkeys(list(result.evidence_refs) + registered))
 
         # --- structured-output validation (bounded repair) ---
@@ -168,10 +236,56 @@ class ResearchDesignAgent:
                                data={"invocation_id": invocation_id, "session_id": session_id,
                                      "offline": result.offline, "status": result.status,
                                      "tool_calls": result.tool_calls})
+        if result.status == "completed":
+            self.repo.save_research_step(call_key + ":completed", request.task_spec.task_id,
+                                         request_hash, result.payload())
         return result
+
+    def _plan_problems(self, request, result):
+        from ..graph.nodes.design_plan import build_plan_spec
+        from ..policy import plan_problems, data_budget_problems
+        try:
+            plan = build_plan_spec(request.task_spec, result.payload(), request.iteration,
+                                   request.parent_plan_id, self.settings)
+            previous = self.repo.get_plan(request.parent_plan_id) if request.parent_plan_id else None
+            ledger = self.repo.get_budget(request.task_spec.task_id)
+            return list(dict.fromkeys(
+                plan_problems(request.task_spec, plan, previous) +
+                data_budget_problems(request.task_spec, plan, ledger["used"], ledger["reserved"])))
+        except (ValueError, TypeError, KeyError) as exc:
+            return [f"invalid plan schema: {str(exc)[:1500]}"]
+
+    def _search(self, request, query):
+        from ..providers.search import search_backend
+        query = str(query).strip()[:2000]
+        identity = sha256_obj({"query": query, "backend": search_backend(self.settings),
+                              "url": self.settings.env_get("ALGO_SEARCH_URL"),
+                              "provider": getattr(self.provider, "name", type(self.provider).__name__)})
+        key = f"search:{request.task_spec.task_id}:{request.iteration}:{identity}"
+        cached = self.repo.research_step(key, identity)
+        if cached is not None:
+            return cached
+        result = self.provider.search_sources(query, request.budget)
+        refs = [self.evidence.register_source(
+            request.task_spec.task_id, r.uri, source_type=r.source_type, locator=r.locator,
+            version=r.version, upload_policy=r.upload_policy, trust=r.trust).model_dump()
+                for r in result.refs[:8]]
+        ids = {r["uri"]: r["evidence_id"] for r in refs}
+        documents = [{**d, "evidence_id": ids.get(d.get("url"))} for d in result.documents[:8]]
+        payload = {"refs": refs, "documents": documents, "query": query,
+                   "used_search_service": result.used_search_service, "note": result.note}
+        self.repo.save_research_step(key, request.task_spec.task_id, identity, payload)
+        return payload
 
     def _budgeted_chat(self, request, system, user, **kwargs):
         check_running(self.repo, request.task_spec.task_id)
+        identity = sha256_obj({"system": system, "user": user, "kwargs": kwargs,
+                              "provider": getattr(self.provider, "name", type(self.provider).__name__),
+                              "model": getattr(self.provider, "model", "")})
+        key = f"model:{request.task_spec.task_id}:{request.iteration}:{identity}"
+        cached = self.repo.research_step(key, identity)
+        if cached is not None:
+            return cached
         limit = request.budget.max_cloud_tokens
         estimate = len((system + user).encode("utf-8")) + int(kwargs.get("max_tokens", 8192))
         self.repo.reserve_budget(request.task_spec.task_id, "cloud_tokens", estimate, limit)
@@ -180,6 +294,9 @@ class ResearchDesignAgent:
             kwargs["timeout"] = max(1, min(240, remaining_seconds(request.task_spec)))
             response = self.provider._chat(system, user, **kwargs)
             usage = response.get("usage") or {}
+            self.repo.save_research_step(key, request.task_spec.task_id, identity,
+                                         {k: v for k, v in response.items()
+                                          if k not in {"raw_response", "reasoning"}})
             return response
         finally:
             total = usage.get("total_tokens")
@@ -197,11 +314,7 @@ class ResearchDesignAgent:
         tp = TaskPaths(self.settings, request.task_slug)
         reader = EvidenceReader(self.settings, self.repo)
         if name == "search_sources":
-            result = self.provider.search_sources(str(arguments["query"])[:2000], request.budget)
-            refs = [self.evidence.register_source(
-                task_id, r.uri, source_type=r.source_type, locator=r.locator).model_dump()
-                    for r in result.refs[:8]]
-            return {"refs": refs, "note": result.note}
+            return self._search(request, arguments["query"])
         if name == "read_evidence":
             ref = next((r for r in self.evidence.list(task_id)
                         if r.evidence_id == arguments["evidence_id"]), None)
@@ -234,10 +347,42 @@ class ResearchDesignAgent:
                     "result": job.result if job else {}}
         if name == "inspect_data":
             from ..execution.data_pipeline import development_summary
-            return development_summary(tp)
+            summary = development_summary(tp)
+            if not summary["releases"]:
+                from algorithm_plugins.registry import hook, resolve_plugin
+                preview = hook(resolve_plugin(request.task_spec), "inspect_development_data")
+                if preview:
+                    summary["source_preview"] = preview(request.task_spec)
+            return summary
         if name == "search_assets":
-            return {"assets": [a.model_dump() for a in self.repo.search_assets(
-                asset_type=arguments.get("asset_type"), status="published")[:12]]}
+            from ..reuse.compat import ReuseRequest, compatibility_for
+            from ..memory import terms
+            wanted = terms(str(arguments.get("query", request.task_spec.business)))
+            assets = [a for a in self.repo.search_assets(asset_type=arguments.get("asset_type"))
+                      if a.validation_status in {"researched", "reproduced", "business_validated", "reusable"}]
+            assets.sort(key=lambda a: len(wanted & terms(a.asset_id + " " + a.source_task)), reverse=True)
+            reuse = ReuseRequest(inputs=request.task_spec.inputs, outputs=request.task_spec.outputs,
+                                 device=request.task_spec.target_hardware or "")
+            return {"assets": [{**a.model_dump(), "compatibility": compatibility_for(
+                self.repo, a.asset_id, a.asset_version, reuse).model_dump()} for a in assets[:12]]}
+        if name == "read_asset":
+            from ..storage.assets import AssetRegistry
+            from ..paths import sha256_file
+            registry = AssetRegistry(self.settings, self.repo)
+            asset = registry.get(arguments["asset_id"], arguments["version"])
+            if asset.validation_status == "deprecated" or asset.upload_policy != "open":
+                raise ValueError("asset is deprecated or its body is not authorised for research upload")
+            filename = arguments["filename"]
+            path = safe_join(registry.asset_dir(asset.asset_id, asset.asset_version, asset.asset_type), filename)
+            if filename not in asset.checksums or sha256_file(path) != asset.checksums[filename]:
+                raise ValueError("asset body not registered or changed")
+            if path.suffix not in {".md", ".txt", ".json", ".yaml", ".py"} or path.stat().st_size > 16000:
+                raise ValueError("bounded text asset required")
+            return {"asset_id": asset.asset_id, "content": path.read_text(), "verified_hash": asset.checksums[filename]}
+        if name == "recall_lessons":
+            from ..memory import ResearchMemory, bounded_json
+            return {"lessons": json.loads(bounded_json(ResearchMemory(self.settings, self.repo).recall(
+                task_id, str(arguments.get("query", ""))), 16000))}
         raise ValueError(f"unsupported research tool: {name}")
 
 

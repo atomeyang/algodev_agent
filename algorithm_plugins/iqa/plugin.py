@@ -632,6 +632,9 @@ class IqaPlugin:
         seed = int(getattr(plan.data_recipe, "seed", 7) or 7)
         return D.export_benchmark(tp, version, seed=seed)
 
+    def inspect_development_data(self, spec) -> Dict[str, Any]:
+        return D.development_source_summary()
+
     def method_entry(self, root, method: str, spec) -> Optional[str]:
         return self.materialise_method(Path(root), method)
 
@@ -664,6 +667,10 @@ class IqaPlugin:
 
     def coding_context_files(self, spec) -> List[str]:
         return ["algorithm_plugins/iqa/plugin.py", "algorithm_plugins/iqa/metrics.py",
+                "algorithm_plugins/iqa/config.py", "algorithm_plugins/iqa/data.py",
+                "algorithm_plugins/iqa/methods/common.py",
+                "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+                "algorithm_plugins/iqa/methods/score_moe.py",
                 "algorithm_plugins/iqa/methods/multitask_adapter.py"]
 
     # ------------------------------------------------------------------ #

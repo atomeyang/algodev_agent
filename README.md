@@ -5,6 +5,13 @@
 的完整闭环。生命周期由 LangGraph 驱动，控制层负责审批哈希、状态版本、预算与暂停/取消语义，
 全部状态落 SQLite；离线时如实回退到合成演示，**绝不伪造结果**。
 
+当前技术方案：[技术方案架构说明](docs/technical_architecture.md)；
+本轮落地更新：[自主算法研发加固说明](docs/rd_hardening.md)
+（意图与模型分工、计划修正、可选检索、恢复、知识共享和剩余边界）；
+任务目录约束：[算法任务目录创建约束](docs/task_directory_structure.md)；
+自主模式：[Auto-Process](docs/auto_process.md)。
+代码与配置核对：[当前能力审查与竞品对照](docs/current_capability_review.md)
+（2026-10-15，涵盖模型分工、意图识别、长期运行、上下文、知识复用与交互体验）。
 指导说明：`docs/codex_development_guide_v1.2.docx`、`docs/agent_architecture_design_v0.4.docx`。
 
 ## 目录结构
@@ -113,12 +120,17 @@ algo-agent auto-process --task <auto_task_id>
 ```bash
 algo-agent chat                 # 新建会话
 algo-agent chat --task <task_id>  # 附着到已有任务
+algo-agent chat --auto-process   # 新任务自动审批、后台执行
+algo-agent preflight --strict    # 配置就绪检查，不调用付费模型
+algo-agent memory --task <task_id>  # 查看可追溯的研究经验
 ```
 
 REPL 命令：`/help` `/new <需求>` `/use <task>` `/tasks` `/status` `/plan` `/approve`
 `/ask <问题>`（调用实时对话模型：优先云端 DeepSeek-V4-Flash，否则本地 Qwen，均无则退回状态拼装）
 `/improve <目标>`（对话式驱动研究/编码子 Agent 继续改进）`/report [--full]`
 `/feedback` `/pause` `/resume` `/cancel` `/budget` `/events` `/export` `/attach` `/quit`。
+新增 `/mode auto|manual`、`/readiness`、`/memory`；明确的自然语言控制经类型化意图路由，
+问题和否定控制不会变成操作。长期任务请先启动独立服务，embedded REPL 退出后不保证后台线程存活。
 
 ### 独立命令行
 
@@ -232,11 +244,25 @@ ROM 达标、其余门槛未达成并定位到根因；real-MOS 轨道 `mobilecl
 | 能力 | 变量 | 说明 |
 | --- | --- | --- |
 | 云端研究/设计 + 对话 | `ALGO_CLOUD_BASE_URL` `ALGO_CLOUD_API_KEY` `ALGO_CLOUD_MODEL` | OpenAI 兼容端点；默认 `deepseek-flash`（DeepSeek-V4-Flash） |
+| 角色模型覆盖 | `ALGO_RESEARCH_MODEL` `ALGO_CHAT_MODEL` `ALGO_INTENT_MODEL` | 不指定时继承云端默认 |
+| 文献检索 | `ALGO_SEARCH_BACKEND` `ALGO_SEARCH_URL` | 可选 arxiv / http；未授权时保持关闭 |
 | 本地辅助模型 | `ALGO_LOCAL_BASE_URL` `ALGO_LOCAL_MODEL` | 提取/标注/诊断 + 无云端密钥时的对话回复，见 `local_largemodel/README.md` |
 | 编码工具 | `ALGO_CODEX_BIN` `ALGO_CODEX_ALLOW_REAL` | 置 `ALGO_CODEX_ALLOW_REAL=1` 才允许真实 Codex 执行 |
+| 编码模型 | `ALGO_CODING_MODEL` `ALGO_CODING_REASONING_EFFORT` | 显式选择；未指定模型则读取 CLI 顶层配置快照 |
 | 控制服务 | `ALGO_SERVICE_HOST` `ALGO_SERVICE_PORT` | 默认 `127.0.0.1:8765` |
 
-配置后运行 `algo-agent doctor` 确认模式由 OFFLINE 变为 LIVE。
+配置后运行 `algo-agent preflight --strict` 查看各角色和缺失项。
+“已配置”不等于模型认证、真实生成或业务效果已验证。
+
+### 独立 VM 编码 Worker
+
+本机容器无法运行 Codex Linux 沙箱时，可选择 `ALGO_CODING_TRANSPORT=ssh`，
+只把编码发送到受信任的独立 Linux VM。研究、数据处理、GPU 训练和评测仍在本机。
+远端保留 `workspace-write` 沙箱；回传代码经过本机独立验收后才进入任务模型池。
+
+部署步骤、SSH 配置、源码传输与取消边界见 [远程编码 Worker](docs/remote_coding_worker.md)。
+配置后运行 `algo-agent preflight --probe-coding --strict` 检查远端，而非只检查本地 CLI。
+尚未配置主机时不会自动部署 VM，也不会关闭当前沙箱。
 
 ### 控制服务与恢复
 
@@ -278,10 +304,11 @@ PYTHONPATH=runtimes/agent_runtime/src:. python3 -m pytest tests -q
 conda run --no-capture-output -n algo_agent_dev python -m pytest tests -q -p no:cacheprovider
 ```
 
-共 **142** 项测试（含 `tests/test_iqa_plugin.py`、`tests/test_iqa_plans.py`、
+2026-10-15 全量回归 **254 passed**（本轮新增 60 项，原有基线为 194 项）。
+套件包含 `tests/test_rd_hardening.py`、`tests/test_iqa_plugin.py`、`tests/test_iqa_plans.py`、
 `tests/test_iqa_annotation.py`、`tests/test_iqa_score_head.py`、
 `tests/test_iqa_mos_benchmark.py`、`tests/test_chat_grounding.py`、
-`tests/test_providers_wiring.py`、`tests/test_chat_driving.py` 等 IQA 路由/指标/导出/约束/三份计划/本地标注/打分头/真实 MOS/模型接线与对话驱动用例），覆盖：需求解析与路径安全、资产不可变/注册幂等（含 `--body` 校验和）、
+`tests/test_providers_wiring.py`、`tests/test_chat_driving.py` 等 IQA 路由/指标/导出/约束/三份计划/本地标注/打分头/真实 MOS/模型接线与对话驱动用例，覆盖：需求解析与路径安全、资产不可变/注册幂等（含 `--body` 校验和）、
 发布阶梯与依赖闭包、审批哈希与状态版本、命令幂等、数据发布冻结校验、反馈版本归因、
 预算与停机规则、恢复、证据读取范围、兼容性判定与缓存失效、复用/复现/任务包/迁移。
 

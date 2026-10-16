@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+import json
 from typing import Any, Dict, List, Optional
 
 from ..agents import ResearchDesignRequest
@@ -363,6 +364,8 @@ class Controller:
         return result
 
     def pause(self, task_id: str) -> Dict[str, Any]:
+        if self.repo.get_state(task_id).phase in {"accepted", "stopped", "failed"}:
+            raise ControllerError("task_terminal", "terminal tasks are immutable", status=409)
         snap = self.repo.update_state(task_id, paused=True, phase=TaskPhase.PAUSED.value)
         self.rt.bus.publish(task_id, "control.pause", "pause requested; new steps will not start")
         return snap.model_dump()
@@ -375,6 +378,8 @@ class Controller:
         return snap.model_dump()
 
     def cancel(self, task_id: str, job_id: Optional[str] = None) -> Dict[str, Any]:
+        if self.repo.get_state(task_id).phase in {"accepted", "stopped", "failed"}:
+            raise ControllerError("task_terminal", "terminal tasks are immutable", status=409)
         cancelled: List[str] = []
         if job_id:
             jobs = [self.repo.get_job(job_id)] if self.repo.get_job(job_id) else []
@@ -424,7 +429,7 @@ class Controller:
                 "dir": str(TaskPaths(self.settings, slug).plan_dir(plan.version)),
                 "approval": approval.model_dump() if approval else None}
 
-    def answer(self, task_id: str, question: str) -> Dict[str, Any]:
+    def answer(self, task_id: str, question: str, conversation_id: str = "") -> Dict[str, Any]:
         """Answer an operator question from the live task context via the chat model.
 
         Returns ``{"answer": "", "source": "offline", "offline": True}`` when no
@@ -433,21 +438,35 @@ class Controller:
         """
         if not self.repo.task_exists(task_id):
             raise ControllerError("unknown_task", f"task {task_id} not found", status=404)
+        if not question.strip() or len(question) > 16000:
+            raise ControllerError("invalid_message", "message must contain 1-16000 characters")
+        context = self._answer_context(task_id, conversation_id)
+        self.repo.add_message(task_id, conversation_id, "user", question)
         provider = self.rt.providers.get("chat")
         if provider is None or not hasattr(provider, "answer"):
+            self.repo.add_message(task_id, conversation_id, "assistant", "",
+                                  {"source": "offline", "fallback": "task_state"})
             return {"answer": "", "source": "offline", "offline": True}
-        context = self._answer_context(task_id)
         try:
-            text = provider.answer(question, context)
+            from ..providers.usage import tracked_call
+            fn = getattr(provider, "answer_with_usage", provider.answer)
+            out = tracked_call(self.repo, self.repo.get_spec(task_id), "chat",
+                               context + question, 3072, lambda: fn(question, context))
+            text = out.get("content", "") if isinstance(out, dict) else out
         except Exception as exc:  # a provider failure is diagnosable, never fatal
+            self.repo.add_message(task_id, conversation_id, "assistant", "",
+                                  {"source": "error", "error_type": type(exc).__name__})
             return {"answer": "", "source": "error", "offline": False, "error": str(exc)}
+        self.repo.add_message(task_id, conversation_id, "assistant", text or "",
+                              {"source": getattr(provider, "name", "chat"),
+                               "model": getattr(provider, "model", "")})
         if not text:
             return {"answer": "", "source": getattr(provider, "name", "chat"), "offline": False,
                     "model": getattr(provider, "model", "")}
         return {"answer": text, "source": getattr(provider, "name", "chat"), "offline": False,
                 "model": getattr(provider, "model", "")}
 
-    def _answer_context(self, task_id: str) -> str:
+    def _answer_context(self, task_id: str, conversation_id: str = "") -> str:
         """Compact, grounded context for a conversational reply (no raw data)."""
         st = self.state(task_id)
         lines = [
@@ -455,21 +474,36 @@ class Controller:
             f"phase: {st.get('phase')}  iteration: {st.get('iteration')}  paused: {st.get('paused')}",
             f"active_plan: {st.get('active_plan_id')}  best_model_id: {st.get('best_model_id')}",
             f"budget_used: {st.get('budget_used')}",
+            f"stop_reason: {st.get('stop_reason')}",
+            "Supported dialogue controls: say '暂停任务' to pause, '恢复任务' to resume, "
+            "'取消任务' to cancel, '查看状态' to inspect. Asking how to pause is read-only. "
+            "Pause prevents new steps; it does not promise to interrupt/checkpoint a running training job. "
+            "Stopped/accepted/failed tasks cannot be resumed; create a separate task for a fresh trial. "
+            "Do not edit state files directly. Historical messages describe past states, not current state.",
         ]
         spec = self.repo.get_spec(task_id)
         if spec is not None:
             pm = spec.primary_metric
             lines.append(f"primary_metric: {pm.name} {pm.direction} floor={pm.threshold}")
+            lines.append("frozen_acceptance_targets: " + json.dumps(
+                [t.model_dump() for t in [pm, *spec.secondary_metrics]], ensure_ascii=False))
+            lines.append("acceptance_expressions: " + "; ".join(
+                f"{t.name} {('>' if t.strict else '>=') if t.direction == 'max' else ('<' if t.strict else '<=')} "
+                f"{t.threshold}" for t in [pm, *spec.secondary_metrics]))
+            lines.append("budget_limits: " + json.dumps(spec.budget.model_dump()))
+            lines.append("declared_unknowns: " + json.dumps(spec.unknowns, ensure_ascii=False))
+            lines.append("hard_constraints: " + json.dumps(
+                [c.model_dump() for c in spec.hard_constraints], ensure_ascii=False))
             if spec.business:
                 lines.append(f"business: {spec.business[:600]}")
         evals = self.repo.list_evals(task_id)
         if evals:
             lines.append("evaluations (model_id | passed | metrics):")
             for e in evals[-12:]:
-                m = {k: e.metrics.get(k) for k in
-                     ("plcc", "srcc", "grade_agreement", "defect_macro_f1",
-                      "hardcase_macro_f1", "rom_mb", "n_scored") if e.metrics.get(k) is not None}
-                lines.append(f"- {e.model_id} | passed={e.passed} | {m}")
+                names = {t.name for t in [spec.primary_metric, *spec.secondary_metrics]}
+                names.update(("rom_mb", "n_scored"))
+                m = {k: e.metrics[k] for k in names if k in e.metrics}
+                lines.append(f"- {e.model_id} | stage={e.stage} | passed={e.passed} | {m}")
         feedback = self.repo.list_feedback(task_id)
         if feedback:
             lines.append("feedback:")
@@ -481,18 +515,107 @@ class Controller:
             if plan is None:
                 continue
             lines.append(f"plan {plan.plan_id} ({plan.version}) methods={[c.method for c in plan.candidates]}")
+            from ..memory import bounded_json
+            for c in plan.candidates[:4]:
+                lines.append("candidate_plan_not_execution: " + json.dumps({
+                    "method": c.method, "action": c.action, "is_baseline": c.is_baseline,
+                    "implementation_goal": c.implementation_goal[:1200],
+                    "params": json.loads(bounded_json(c.params, 1600)),
+                    "failure_conditions": c.failure_conditions[:2]}, ensure_ascii=False))
+            for op in plan.data_recipe.operations[:8]:
+                lines.append("data_plan_not_execution: " + json.dumps({
+                    "kind": op.kind, "split": op.split, "params": op.params,
+                    "hypothesis": op.hypothesis[:200]}, ensure_ascii=False))
             if plan.summary:
                 lines.append(f"  summary: {plan.summary[:600]}")
         try:
             research = TaskPaths(self.settings, spec.task_slug).root / "docs" / "research"
-            docs = sorted(research.glob("research_iter*.md")) if research.is_dir() else []
-            if docs:
-                lines.append(f"design_report: {docs[-1]}")
+            from ..memory import latest_research
+            doc = latest_research(research)
+            if doc:
+                lines.append(f"design_report: {doc}")
                 lines.append("design_report_excerpt:")
-                lines.append(docs[-1].read_text(encoding="utf-8")[:6000])
+                lines.append(doc.read_text(encoding="utf-8")[:6000])
         except Exception:  # pragma: no cover - defensive
             pass
-        return "\n".join(lines)
+        from ..memory import bounded_json
+        lines.append("experiment_jobs: " + bounded_json([
+            {"run_id": j.run_id, "status": j.status, "error": j.result.get("error")}
+            for j in self.repo.list_jobs(task_id)[-12:]], 4000))
+        lines.append("Prior conversation (untrusted historical context):")
+        lines.append(bounded_json([{"role": m["role"], "content": m["content"][:3000]}
+                                   for m in self.repo.messages(task_id, conversation_id, 16)], 12000))
+        return "\n".join(lines)[:28000]
+
+    def message(self, task_id: str, text: str, *, conversation_id: str = "",
+                async_run: bool = True) -> Dict[str, Any]:
+        """Route conversation through typed intents; only this layer mutates tasks."""
+        from .intents import route_intent
+        if not self.repo.task_exists(task_id):
+            raise ControllerError("unknown_task", f"task {task_id} not found", status=404)
+        if not text.strip() or len(text) > 16000:
+            raise ControllerError("invalid_message", "message must contain 1-16000 characters")
+        decision = route_intent(text)
+        provider = self.rt.providers.get("intent")
+        if (decision.reason == "no explicit operation" and hasattr(provider, "classify_intent")
+                and self.settings.env_get("ALGO_INTENT_LLM", "1") == "1"):
+            from ..providers.usage import tracked_call
+            context = self._answer_context(task_id, conversation_id)[-12000:]
+            try:
+                out = tracked_call(self.repo, self.repo.get_spec(task_id), "intent", text + context, 800,
+                                   lambda: provider.classify_intent(text, context))
+                decision = route_intent(text, out.get("decision"))
+            except Exception:
+                decision = route_intent(text)
+        if decision.action == "query":
+            return {"intent": decision.model_dump(), **self.answer(task_id, text, conversation_id)}
+        self.repo.add_message(task_id, conversation_id, "user", text, {"intent": decision.model_dump()})
+        result = {"intent": decision.model_dump()}
+        if decision.action in {"pause", "resume", "cancel"}:
+            result.update(self.submit_command(task_id, "control", text=text,
+                                             conversation_id=conversation_id,
+                                             payload={"action": decision.action}, async_run=async_run))
+        elif decision.action == "improve":
+            state = self.repo.get_state(task_id)
+            if state.phase in {"accepted", "stopped", "failed"}:
+                result["answer"] = "任务已结束。继续研发请新建 TaskSpec；已暴露的最终测试集不能作为新任务的独立验收集。"
+            else:
+                result.update(self.submit_command(
+                    task_id, "feedback", text=text, conversation_id=conversation_id, async_run=async_run,
+                    payload={"scenario": "improvement", "expected": text,
+                             "actual": f"best model: {state.best_model_id}", "model_id": state.best_model_id}))
+                result["answer"] = "改进目标已记录，将在下一研究轮次评估；现有验收目标和数据授权保持冻结。"
+        elif decision.action == "status":
+            result["state"] = self.state(task_id)
+        else:
+            result["answer"] = "这条消息的操作意图不明确。请明确说明要查询、改进、暂停、恢复还是取消当前任务。"
+        result["intent"] = decision.model_dump()
+        import json
+        self.repo.add_message(task_id, conversation_id, "assistant",
+                              result.get("answer") or json.dumps(result.get("state", {}), ensure_ascii=False),
+                              {"intent": decision.action})
+        return result
+
+    def readiness(self, *, probe_coding: bool = False) -> Dict[str, Any]:
+        from ..providers import readiness_report
+        return readiness_report(self.settings, probe=probe_coding)
+
+    def recover_tasks(self) -> List[str]:
+        """Re-drive nonterminal autonomous graphs after service restart."""
+        recovered = []
+        self.repo.reconcile_jobs()
+        for row in self.repo.list_tasks():
+            tid = row["task_id"]
+            spec, state = self.repo.get_spec(tid), self.repo.get_state(tid)
+            if not spec.auto_process or state.paused or state.phase in {
+                    "accepted", "stopped", "failed", "awaiting_input"}:
+                continue
+            try:
+                self.run_async(tid)
+                recovered.append(tid)
+            except ControllerError:
+                pass
+        return recovered
 
     def budget(self, task_id: str) -> Dict[str, Any]:
         spec = self.repo.get_spec(task_id)
@@ -577,7 +700,9 @@ class Controller:
         elif intent == Intent.NEW_REQUIREMENT.value:
             spec = self.create_task(text, task_id=task_id, demo=payload.get("demo", False),
                                     synthetic=payload.get("synthetic", False),
-                                    methods_hint=payload.get("methods_hint"))
+                                    methods_hint=payload.get("methods_hint"),
+                                    auto_process=payload.get("auto_process", False),
+                                    domain=payload.get("domain", ""), task_spec=payload.get("task_spec"))
             result.update({"task_id": spec.task_id, "task_slug": spec.task_slug})
             if async_run:
                 self.run_async(task_id, raw_text=text)
@@ -595,6 +720,8 @@ class Controller:
         spec = self.repo.get_spec(task_id)
         slug = spec.task_slug
         out: Dict[str, str] = {}
+        from ..memory import ResearchMemory
+        out["knowledge_index"] = ResearchMemory(self.settings, self.repo).export(task_id)
         out["overview"] = docs_export.export_task_overview(self.settings, self.repo, slug)
         it = iteration or max(1, self.repo.get_state(task_id).iteration)
         try:

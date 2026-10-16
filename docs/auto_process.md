@@ -1,5 +1,9 @@
 # Auto-Process
 
+2026-10-15 implementation update: see [R&D hardening](rd_hardening.md) for
+role models, typed conversation, live search, bounded plan repair, recovery,
+research memory, sharing policy and current limitations.
+
 This mode removes approval waits, not the acceptance contract. It runs:
 
 1. Validate the task's requirements and fixed thresholds.
@@ -41,8 +45,10 @@ use a new task ID: its previous test feedback cannot become unseen final evidenc
 ## Real Providers
 
 - Research: configure `ALGO_CLOUD_API_KEY`, `ALGO_CLOUD_BASE_URL` and optionally
-  `ALGO_CLOUD_MODEL`. Configure `ALGO_SEARCH_URL` for live source discovery.
+  `ALGO_CLOUD_MODEL` / `ALGO_RESEARCH_MODEL`. Explicitly opt into
+  `ALGO_SEARCH_BACKEND=arxiv`, or configure `ALGO_SEARCH_URL` for a search service.
 - Coding: enable `ALGO_CODEX_ALLOW_REAL=1` and authenticate the installed CLI.
+  `ALGO_CODING_MODEL` pins a model; otherwise the CLI's top-level model config is snapshotted.
   New/modified algorithms cannot fall back to a template writer.
 - IQA annotation: configure the existing local VLM endpoint. Automatic image
   annotation accepts only loopback endpoints. Private raw images are not sent
@@ -174,10 +180,13 @@ Limits include research rounds/model-tool steps, coding calls/repair attempts,
 experiment count, configured epochs, wall time, no-improvement rounds, data
 operations, added samples and annotation samples. Attempts are charged before
 execution, including failures. One experiment slot is reserved for final inference.
-`max_cloud_tokens` currently accounts for the research provider's calls, including
+`max_cloud_tokens` accounts for research and auxiliary chat/intent calls, including
 conservative charges when usage is unavailable. The external coding CLI's internal
 token usage is not a hard-bounded part of that token ledger; its call count and
 wall time are bounded. Model code must respect the supplied epoch config.
+`max_memory_mb` and `max_output_file_mb` optionally set Linux address-space and
+per-file limits in experiment workers; both default to 0 (disabled), and neither
+is a process-tree/GPU/disk quota.
 
 `pause` prevents further stages; running experiment processes may finish.
 `cancel` terminates running process groups. Explicit pause/cancel always takes

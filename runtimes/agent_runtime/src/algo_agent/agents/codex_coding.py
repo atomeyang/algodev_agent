@@ -97,6 +97,7 @@ class CodexCodingAgent:
                 outcome = executor.execute(limited, ctx)
             except (OSError, subprocess.TimeoutExpired) as exc:
                 outcome = CodingOutcome(status="failed", tool=executor.name, open_issues=[str(exc)])
+            blocked = outcome.status == "blocked"
             after = self._files(workspace)
             changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
             rejected = [p for p in changed if not self._in_scope(p, spec.write_paths)]
@@ -145,13 +146,13 @@ class CodexCodingAgent:
                         shutil.copy2(src, dst)
                     applied.append(rel)
                 break
-            outcome.status = "failed"
+            outcome.status = "blocked" if blocked else "failed"
             ctx["repair_feedback"] = {"attempt": attempt, "rejected_files": rejected,
                                       "verifications": [v.model_dump() for v in verification],
                                       "open_issues": outcome.open_issues}
             self.repo.append_event(spec.task_id, "coding.verification_failed",
                                    "coding attempt failed independent verification", data=ctx["repair_feedback"])
-            if rejected:
+            if blocked or rejected:
                 break
         outcome.verifications = verification
         outcome.diff = "\n".join("".join(difflib.unified_diff(

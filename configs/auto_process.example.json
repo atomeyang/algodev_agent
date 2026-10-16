@@ -9,6 +9,8 @@
   "demo": true,
   "synthetic": true,
   "auto_process": true,
+  "require_live_research": false,
+  "research_queries": ["robust tabular regression"],
   "primary_metric": {"name": "rmse", "direction": "min", "threshold": 0.5},
   "secondary_metrics": [{"name": "rmse_low_light", "direction": "min", "threshold": 0.5}],
   "budget": {
@@ -25,7 +27,9 @@
     "max_cloud_tokens": 400000,
     "max_data_operations": 24,
     "max_added_samples": 10000,
-    "max_annotation_samples": 1000
+    "max_annotation_samples": 1000,
+    "max_memory_mb": 0,
+    "max_output_file_mb": 0
   },
   "data_sources": []
 }

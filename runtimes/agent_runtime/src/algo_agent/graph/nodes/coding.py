@@ -79,6 +79,9 @@ def coding_node(state: TaskState, ctx) -> Dict[str, Any]:
                 + ("; assert callable(m.predict)" if spec.auto_process else "") + "\""],
             budget=budget, context_files=context_files, entry=entry_rel,
             require_real=c.action != "reuse")
+        if spec.auto_process and spec.domain == "demo_tabular" and c.action != "reuse":
+            spec_task.acceptance_commands.append(
+                "python -m algo_agent.execution.contract_probe coding_contract.json")
         result = ctx.coding_agent.submit(spec_task, {"task_slug": tp.slug, "method": method,
                                                      "dependency_lock": "pyproject.toml"})
         new_calls += 1

@@ -14,15 +14,6 @@ from ...schemas import contracts as C
 from ...schemas.enums import TaskPhase
 from ..state import TaskState
 
-_METRIC_SYNONYMS = {
-    "rmse": ("rmse", "均方根误差", "回归"),
-    "mae": ("mae", "平均绝对误差"),
-    "psnr": ("psnr", "峰值信噪比"),
-    "ssim": ("ssim", "结构相似"),
-    "accuracy": ("accuracy", "准确率", "acc"),
-    "f1": ("f1", "f1-score"),
-    "latency_ms": ("延迟", "latency", "耗时"),
-}
 _NUM = r"([0-9]+(?:\.[0-9]+)?)"
 
 
@@ -40,31 +31,35 @@ def parse_requirement(text: str, task_id: str, task_slug: str = "", demo: bool =
     if callable(parser):
         spec = parser(text, task_id, slug, demo=demo, synthetic=synthetic)
         spec.domain = dom
+        from ...requirements import metric_targets
+        targets, problems = metric_targets(text)
+        if targets:
+            explicit = {t.name: t for t in targets}
+            # Preserve domain defaults, but never silently ignore an explicit bound.
+            if spec.primary_metric.name in explicit:
+                spec.primary_metric = explicit.pop(spec.primary_metric.name)
+            spec.secondary_metrics = [
+                explicit.pop(t.name, t) for t in spec.secondary_metrics
+                if t.name != spec.primary_metric.name]
+            spec.secondary_metrics.extend(explicit.values())
+            for constraint in spec.hard_constraints:
+                if constraint.name in {"rom_mb", "rom_mb_fp16", "package_size_mb"}:
+                    rom = next((t for t in targets if t.name == "rom_mb"), None)
+                    if rom and rom.threshold is not None:
+                        constraint.value, constraint.unit = rom.threshold, "MB"
+            spec.unknowns.extend(problems)
         return spec
 
     lower = text.lower()
     unknowns: List[str] = []
 
-    metric_name = None
-    for name, keys in _METRIC_SYNONYMS.items():
-        if any(k.lower() in lower for k in keys):
-            metric_name = name
-            break
-    if metric_name is None:
-        metric_name = "rmse"
+    from ...requirements import metric_targets
+    targets, metric_problems = metric_targets(text)
+    unknowns.extend(metric_problems)
+    if not targets:
+        targets = [C.MetricTarget(name="rmse", unknown=True)]
         unknowns.append("primary metric not stated; defaulted to rmse")
-
-    threshold = None
-    for pat in (rf"(?:不超过|小于|低于|<=|<|达到|至少|不低于|>=)\s*{_NUM}",
-                rf"{_NUM}\s*(?:以下|以内|之内)"):
-        m = re.search(pat, text)
-        if m:
-            threshold = float(m.group(1))
-            break
-    if threshold is None:
         unknowns.append("acceptance threshold not stated")
-
-    direction = "min" if metric_name in {"rmse", "mae", "latency_ms"} else "max"
 
     hardware = None
     for key, hw in (("cpu", "cpu"), ("gpu", "gpu"), ("移动端", "mobile"), ("手机", "mobile"),
@@ -96,8 +91,7 @@ def parse_requirement(text: str, task_id: str, task_slug: str = "", demo: bool =
         task_id=task_id, task_slug=slug, business=text.strip(),
         inputs=inputs, outputs=outputs, target_hardware=hardware,
         hard_constraints=constraints,
-        primary_metric=C.MetricTarget(name=metric_name, direction=direction, threshold=threshold,
-                                      unit="", unknown=threshold is None),
+        primary_metric=targets[0], secondary_metrics=targets[1:],
         budget=C.Budget(), unknowns=unknowns, demo=demo, synthetic=synthetic, domain=dom,
     )
 
@@ -116,13 +110,21 @@ def intake_node(state: TaskState, ctx) -> Dict[str, Any]:
     # silently propagating into the plan.
     from algorithm_plugins.registry import resolve_plugin
     plugin = resolve_plugin(spec)
-    req_problems: List[str] = []
+    from ...requirements import requirement_problems
+    req_problems: List[str] = requirement_problems(spec) if spec.auto_process else []
+    if spec.require_live_research:
+        from ...providers import readiness_report
+        readiness = readiness_report(
+            ctx.settings, probe=ctx.settings.env_get("ALGO_CODING_TRANSPORT") == "ssh")
+        req_problems.extend(f"provider prerequisite missing: {key}" for key in readiness["blockers"])
+        if readiness.get("coding_probe") and not readiness["coding_probe"]["available"]:
+            req_problems.append(readiness["coding_probe"]["detail"])
     validator = getattr(plugin, "validate_requirement", None)
     if callable(validator):
         try:
-            req_problems = list(validator(spec.model_dump()) or [])
+            req_problems.extend(validator(spec.model_dump()) or [])
         except Exception as exc:  # a broken validator must not abort intake
-            req_problems = [f"requirement validator raised: {exc}"]
+            req_problems.append(f"requirement validator raised: {exc}")
     if req_problems:
         ctx.repo.append_event(task_id, "stage.intake",
                               "requirement validation flagged problems",

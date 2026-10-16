@@ -1,0 +1,122 @@
+plan_id: p_711fe4fcb779_001
+version: v1
+dag:
+- schema_version: '1.0'
+  step_id: prepare_assets
+  kind: experiment
+  depends_on: []
+  params: {}
+- schema_version: '1.0'
+  step_id: coding
+  kind: coding
+  depends_on:
+  - prepare_assets
+  params: {}
+- schema_version: '1.0'
+  step_id: run_mobileclip2_v7_score
+  kind: experiment
+  depends_on:
+  - coding
+  params:
+    method: mobileclip2_v7_score
+- schema_version: '1.0'
+  step_id: run_multitask_adapter
+  kind: experiment
+  depends_on:
+  - coding
+  params:
+    method: multitask_adapter
+- schema_version: '1.0'
+  step_id: evaluate
+  kind: evaluation
+  depends_on:
+  - run_mobileclip2_v7_score
+  - run_multitask_adapter
+  params: {}
+- schema_version: '1.0'
+  step_id: analyze
+  kind: analysis
+  depends_on:
+  - evaluate
+  params: {}
+change_scope:
+  schema_version: '1.0'
+  allowed_methods:
+  - mobileclip2_v7_score
+  - multitask_adapter
+  allowed_data_sources:
+  - qaa_iqa_frozen_benchmark
+  - iqa_agent_dev_split
+  - iqa_agent_measure_registry
+  allowed_recipe_changes:
+  - augment
+  - resample
+  - filter
+  - annotate
+  - relabel
+  - extend
+  parameter_space:
+    mobileclip2_v7_score:
+      score_ckpt: ''
+      image_size: 256
+      feature_batch: 32
+      feature_cache: true
+      defect_threshold_source: registry/measure_thresholds.json
+      split: development_test_first_then_final_untouched
+      seed: 7
+      epochs: 40
+      mlp_max_iter: 40
+    multitask_adapter:
+      epochs: 30
+      lr: 0.001
+      weight_decay: 0.01
+      hidden: 256
+      dropout: 0.15
+      batch_size: 64
+      loss:
+        ordinal_ce_weight: 0.7
+        l1_weight: 0.3
+        pairwise_rank_weight: 0.2
+        pairwise_min_score_gap: 5.0
+        bce_weight: 1.0
+      pos_weight_scale: 1.5
+      min_pos_weight: 1.0
+      max_pos_weight: 12.0
+      tune_thresholds: true
+      threshold_grid_step: 0.025
+      defect_threshold_default: 0.5
+      augment:
+        hflip: true
+        extra_samples: 240
+        train_only: true
+      image_size: 256
+      feature_batch: 32
+      feature_cache: true
+      early_stop_patience: 6
+      seed: 7
+      export_format: fp16_heads_plus_frozen_encoder
+      mlp_max_iter: 40
+  write_paths:
+  - model_pool
+  evaluation_protocol_id: iqa_frozen_v1
+  upload_policy: restricted
+  resource_budget:
+    schema_version: '1.0'
+    max_research_calls: 3
+    max_coding_calls: 8
+    max_fix_attempts: 2
+    max_experiments: 9
+    max_epochs: 40
+    max_wall_clock_s: 2700.0
+    max_cloud_tokens: 400000
+    max_no_improve: 3
+    max_iterations: 3
+    max_research_steps: 12
+    max_candidates: 2
+    max_data_operations: 8
+    max_added_samples: 240
+    max_annotation_samples: 4
+    max_memory_mb: 0
+    max_output_file_mb: 2048
+  max_iterations: 3
+  approval_mode: scoped_auto

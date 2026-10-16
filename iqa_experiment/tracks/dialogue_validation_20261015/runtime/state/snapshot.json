@@ -1,0 +1,319 @@
+{
+  "task": {
+    "schema_version": "1.0",
+    "task_id": "iqa_dialogue_20261015",
+    "task_slug": "iqa_dialogue_20261015",
+    "domain": "iqa",
+    "business": "轻量双输出 IQA 自主研发验证。使用当前本地 IQA pseudo-MOS 基准，输出 0-100 质量分和 blur/over_exp/under_exp/flare/white_balance 五类缺陷。主指标 PLCC >= 0.85，SRCC >= 0.85，defect_macro_f1 >= 0.85，grade_agreement >= 0.90，hardcase_macro_f1 >= 0.85，ROM < 60 MB。自主研究模型结构、训练策略、loss 和数据方案，产生可执行的代码与数据实验，依据开发集结果再研究、改进并迭代，不等待审批。不能通过降低指标、替换测试集、删除困难样本或修改测试真值取得达标。原始样本及历史产物只读，训练集增强和少量本地弱标注可以实验。历史测试集已暴露，不能宣称本次复测是新的独立业务验收。即使某些门槛受标签覆盖限制，仍在预算内测量代码和数据干预对可测指标的影响，最终明确哪些达标、哪些未达标、哪些不可测。历史模型结果不代表理论上限。",
+    "inputs": [
+      "rgb_image_256"
+    ],
+    "outputs": [
+      "quality_score_0_100",
+      "defect_multilabel_5"
+    ],
+    "target_hardware": "mobile",
+    "precision": "fp16",
+    "hard_constraints": [
+      {
+        "schema_version": "1.0",
+        "name": "rom_mb_fp16",
+        "value": 60,
+        "unit": "MB",
+        "measurement_scope": "",
+        "blocking": true
+      },
+      {
+        "schema_version": "1.0",
+        "name": "dual_output",
+        "value": "score+defects",
+        "unit": "",
+        "measurement_scope": "",
+        "blocking": true
+      }
+    ],
+    "primary_metric": {
+      "schema_version": "1.0",
+      "name": "plcc",
+      "direction": "max",
+      "threshold": 0.85,
+      "unit": "",
+      "protocol_id": "",
+      "measured_on": null,
+      "unknown": false,
+      "strict": false
+    },
+    "secondary_metrics": [
+      {
+        "schema_version": "1.0",
+        "name": "srcc",
+        "direction": "max",
+        "threshold": 0.85,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "defect_macro_f1",
+        "direction": "max",
+        "threshold": 0.85,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "grade_agreement",
+        "direction": "max",
+        "threshold": 0.9,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "hardcase_macro_f1",
+        "direction": "max",
+        "threshold": 0.85,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "rom_mb",
+        "direction": "min",
+        "threshold": 60.0,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": true
+      }
+    ],
+    "budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 8,
+      "max_fix_attempts": 2,
+      "max_experiments": 9,
+      "max_epochs": 40,
+      "max_wall_clock_s": 2700.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 3,
+      "max_iterations": 3,
+      "max_research_steps": 12,
+      "max_candidates": 2,
+      "max_data_operations": 8,
+      "max_added_samples": 240,
+      "max_annotation_samples": 4,
+      "max_memory_mb": 0,
+      "max_output_file_mb": 2048
+    },
+    "unknowns": [
+      "Historical test benchmark is already exposed; this run is a workflow/replication validation.",
+      "Pseudo-MOS is not independently collected human MOS.",
+      "On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate."
+    ],
+    "demo": false,
+    "synthetic": false,
+    "source": "natural_language",
+    "auto_process": true,
+    "require_live_research": false,
+    "research_queries": [
+      "image quality assessment"
+    ],
+    "methods_hint": [],
+    "data_sources": [],
+    "created_at": "2026-10-15T07:44:50.379042+00:00"
+  },
+  "state": {
+    "schema_version": "1.0",
+    "task_id": "iqa_dialogue_20261015",
+    "phase": "stopped",
+    "iteration": 0,
+    "state_version": 5,
+    "active_plan_id": null,
+    "pending_approval": null,
+    "best_model_id": null,
+    "stop_reason": "research did not produce an executable plan: research output schema invalid: 21 validation errors for _ResearchOutput\nhypotheses.0\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H1', '...任务无一致提升'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.1\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H2', '... drop >稀有类 gain'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.2\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H3', '... 下降超过噪声带'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.3\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H4', '... flare/white_balance'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.0\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C0_baseli...seed', 'eval_protocol']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.1\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C1_aug_on...l', 'loss', 'sampling']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.2\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C2_rank_o...l', 'data', 'sampling']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.3\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C3_balanc...l', 'data_aug', 'loss']}, input_type=dict]\n    For further information visit https://errors.pydan",
+    "paused": false,
+    "budget_used": {
+      "reserved": {
+        "cloud_tokens": 0.0
+      },
+      "used": {
+        "cloud_tokens": 111077,
+        "research_calls": 1
+      }
+    },
+    "updated_at": "2026-10-15T07:51:06.060663+00:00"
+  },
+  "jobs": [],
+  "events": [
+    {
+      "event_seq": 1,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "task.created",
+      "level": "info",
+      "message": "task iqa_dialogue_20261015 created (slug=iqa_dialogue_20261015)",
+      "data": {
+        "demo": false,
+        "synthetic": false,
+        "unknowns": [
+          "Historical test benchmark is already exposed; this run is a workflow/replication validation.",
+          "Pseudo-MOS is not independently collected human MOS.",
+          "On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate."
+        ]
+      },
+      "created_at": "2026-10-15T07:45:03.951056+00:00"
+    },
+    {
+      "event_seq": 2,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "feedback.received",
+      "level": "info",
+      "message": "feedback fb_3e465c833754 queued (severity=medium)",
+      "data": {
+        "model_id": null,
+        "scenario": "improvement"
+      },
+      "created_at": "2026-10-15T07:45:25.955292+00:00"
+    },
+    {
+      "event_seq": 3,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "control.pause",
+      "level": "info",
+      "message": "pause requested; new steps will not start",
+      "data": {},
+      "created_at": "2026-10-15T07:45:26.105827+00:00"
+    },
+    {
+      "event_seq": 4,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "control.resume",
+      "level": "info",
+      "message": "resume requested; new steps may start",
+      "data": {},
+      "created_at": "2026-10-15T07:45:26.246729+00:00"
+    },
+    {
+      "event_seq": 5,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "stage.intake",
+      "level": "info",
+      "message": "requirement parsed; unknowns=3",
+      "data": {
+        "metric": {
+          "direction": "max",
+          "measured_on": null,
+          "name": "plcc",
+          "protocol_id": "",
+          "schema_version": "1.0",
+          "strict": false,
+          "threshold": 0.85,
+          "unit": "",
+          "unknown": false
+        },
+        "unknowns": [
+          "Historical test benchmark is already exposed; this run is a workflow/replication validation.",
+          "Pseudo-MOS is not independently collected human MOS.",
+          "On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate."
+        ],
+        "validation_problems": []
+      },
+      "created_at": "2026-10-15T07:45:33.180394+00:00"
+    },
+    {
+      "event_seq": 6,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 1: 0 candidates",
+      "data": {
+        "invocation_id": "inv_2a04900733",
+        "offline": false,
+        "session_id": "sess_2dc8a47f41",
+        "status": "failed",
+        "tool_calls": [
+          {
+            "note": "arxiv: 8 results; metadata/abstracts only, not reproduction",
+            "refs": 8,
+            "tool": "search_sources",
+            "used_search_service": true
+          },
+          {
+            "refs": 8,
+            "tool": "build_packet"
+          },
+          {
+            "result": {
+              "releases": []
+            },
+            "tool": "inspect_data"
+          },
+          {
+            "result": {
+              "assets": []
+            },
+            "tool": "search_assets"
+          },
+          {
+            "result": {
+              "error": "bounded Python source only",
+              "status": "failed"
+            },
+            "tool": "get_code_excerpt"
+          },
+          {
+            "result": {
+              "lessons": []
+            },
+            "tool": "recall_lessons"
+          },
+          {
+            "result": {
+              "documents": [],
+              "note": "arxiv: 0 results; metadata/abstracts only, not reproduction",
+              "query": "lightweight no-reference image quality assessment multi-task defect classification distillation hard example ranking loss",
+              "refs": [],
+              "used_search_service": true
+            },
+            "tool": "search_sources"
+          }
+        ]
+      },
+      "created_at": "2026-10-15T07:51:05.890155+00:00"
+    },
+    {
+      "event_seq": 7,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "research.blocked",
+      "level": "info",
+      "message": "research did not produce an executable plan: research output schema invalid: 21 validation errors for _ResearchOutput\nhypotheses.0\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H1', '...任务无一致提升'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.1\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H2', '... drop >稀有类 gain'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.2\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H3', '... 下降超过噪声带'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.3\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H4', '... flare/white_balance'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.0\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C0_baseli...seed', 'eval_protocol']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.1\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C1_aug_on...l', 'loss', 'sampling']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.2\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C2_rank_o...l', 'data', 'sampling']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.3\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C3_balanc...l', 'data_aug', 'loss']}, input_type=dict]\n    For further information visit https://errors.pydan",
+      "data": {},
+      "created_at": "2026-10-15T07:51:05.893412+00:00"
+    },
+    {
+      "event_seq": 8,
+      "task_id": "iqa_dialogue_20261015",
+      "kind": "task.halted",
+      "level": "warning",
+      "message": "research did not produce an executable plan: research output schema invalid: 21 validation errors for _ResearchOutput\nhypotheses.0\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H1', '...任务无一致提升'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.1\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H2', '... drop >稀有类 gain'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.2\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H3', '... 下降超过噪声带'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nhypotheses.3\n  Input should be a valid string [type=string_type, input_value={'hypothesis_id': 'H4', '... flare/white_balance'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.0\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C0_baseli...seed', 'eval_protocol']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.1\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C1_aug_on...l', 'loss', 'sampling']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.2\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C2_rank_o...l', 'data', 'sampling']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\ncontrols.3\n  Input should be a valid string [type=string_type, input_value={'control_id': 'C3_balanc...l', 'data_aug', 'loss']}, input_type=dict]\n    For further information visit https://errors.pydan",
+      "data": {},
+      "created_at": "2026-10-15T07:51:05.896960+00:00"
+    }
+  ],
+  "control_state_dir": "/root/.algo_agent/validations/iqa_dialogue_20261015",
+  "note": "audit snapshot, not a replacement for the live scheduler/checkpoint database"
+}

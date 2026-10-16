@@ -8,6 +8,8 @@ thread over the persistent checkpointer.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from contextlib import asynccontextmanager
+import threading
 
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -17,19 +19,32 @@ from ..schemas.enums import Intent
 from .controller import Controller, ControllerError
 
 _CONTROLLER: Optional[Controller] = None
+_CONTROLLER_LOCK = threading.Lock()
 
 
 def get_controller(settings=None) -> Controller:
     global _CONTROLLER
-    if _CONTROLLER is None:
-        settings = settings or load_settings()
-        _CONTROLLER = Controller(settings, inline=False)
-        _CONTROLLER.rt.start_workers()
+    with _CONTROLLER_LOCK:
+        if _CONTROLLER is None:
+            settings = settings or load_settings()
+            _CONTROLLER = Controller(settings, inline=False)
+            _CONTROLLER.rt.start_workers()
+            _CONTROLLER.recover_tasks()
     return _CONTROLLER
 
 
 def create_app(settings=None) -> FastAPI:
-    app = FastAPI(title="algo-agent control service", version="0.4.0")
+    @asynccontextmanager
+    async def lifespan(_app):
+        # Recovery must start at service boot, not wait for a user's first HTTP request.
+        ctrl = get_controller(settings)
+        ctrl.rt.start_workers()
+        try:
+            yield
+        finally:
+            ctrl.rt.stop_workers()
+
+    app = FastAPI(title="algo-agent control service", version="0.4.0", lifespan=lifespan)
 
     @app.exception_handler(ControllerError)
     async def _ctrl_err(_request, exc: ControllerError):  # pragma: no cover - thin wrapper
@@ -41,12 +56,44 @@ def create_app(settings=None) -> FastAPI:
         return {"status": "ok", "root": str(ctrl.settings.root),
                 "offline": ctrl.settings.offline(),
                 "worker_running": ctrl.rt.worker.running(),
-                "providers": [s.name for s in ctrl.rt.providers.values()
-                              if hasattr(s, "status") and s.status().available]}
+                "providers": {role: getattr(ctrl.rt.providers.get(role), "name", None)
+                              for role in ("research", "local", "coding")},
+                "note": "process liveness only; use /readiness for configured prerequisites"}
 
     @app.get("/tasks")
     def list_tasks() -> List[Dict[str, Any]]:
         return get_controller(settings).repo.list_tasks()
+
+    @app.get("/readiness")
+    def readiness(probe_coding: bool = False) -> Dict[str, Any]:
+        return get_controller(settings).readiness(probe_coding=probe_coding)
+
+    @app.post("/tasks/{task_id}/messages")
+    def message(task_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+        return get_controller(settings).message(
+            task_id, str(body.get("text", "")), conversation_id=str(body.get("conversation_id", "")))
+
+    @app.get("/tasks/{task_id}/messages")
+    def messages(task_id: str, conversation_id: str = "") -> List[Dict[str, Any]]:
+        return get_controller(settings).repo.messages(task_id, conversation_id)
+
+    @app.get("/tasks/{task_id}/memory")
+    def memory(task_id: str) -> Dict[str, Any]:
+        from ..memory import ResearchMemory
+        ctrl = get_controller(settings)
+        return ResearchMemory(ctrl.settings, ctrl.repo).summary(task_id)
+
+    @app.get("/tasks/{task_id}/budget")
+    def budget(task_id: str) -> Dict[str, Any]:
+        return get_controller(settings).budget(task_id)
+
+    @app.get("/tasks/{task_id}/models")
+    def models(task_id: str) -> List[Dict[str, Any]]:
+        return [m.model_dump() for m in get_controller(settings).repo.list_models(task_id)]
+
+    @app.get("/tasks/{task_id}/evals")
+    def evals(task_id: str) -> List[Dict[str, Any]]:
+        return [e.model_dump() for e in get_controller(settings).repo.list_evals(task_id)]
 
     @app.post("/tasks")
     def create_task(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
@@ -82,7 +129,8 @@ def create_app(settings=None) -> FastAPI:
 
     @app.post("/tasks/{task_id}/ask")
     def ask(task_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-        return get_controller(settings).answer(task_id, str(body.get("question", "")))
+        return get_controller(settings).answer(task_id, str(body.get("question", "")),
+                                               str(body.get("conversation_id", "")))
 
     @app.post("/tasks/{task_id}/commands")
     def commands(task_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
@@ -124,6 +172,10 @@ def create_app(settings=None) -> FastAPI:
     @app.post("/tasks/{task_id}/export")
     def export(task_id: str, body: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
         return get_controller(settings).export(task_id, iteration=body.get("iteration"))
+
+    @app.get("/jobs")
+    def jobs(task_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        return get_controller(settings).jobs(task_id)
 
     @app.get("/jobs/{job_id}")
     def job(job_id: str) -> Dict[str, Any]:

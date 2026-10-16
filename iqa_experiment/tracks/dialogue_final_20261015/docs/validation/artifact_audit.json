@@ -1,0 +1,112 @@
+{
+  "task_id": "iqa_dialogue_final_20261015",
+  "audited_on_utc": "2026-10-15",
+  "source": "Independent read-only inspection after the live task stopped; not an algorithm evaluation.",
+  "terminal": {
+    "phase": "stopped",
+    "stop_reason": "task wall-clock budget exhausted",
+    "halted_at": "2026-10-15T08:51:51.532021+00:00",
+    "research_iterations": 2,
+    "auto_approved_plans": 2,
+    "failed_jobs": 1,
+    "successful_jobs": 0,
+    "evaluations": 0,
+    "best_model_id": null
+  },
+  "data": {
+    "base_train": 325,
+    "development": 85,
+    "final_inputs": 610,
+    "v1_train_pool": 445,
+    "v1_inner_train": 351,
+    "v1_inner_val": 94,
+    "train_development_subject_overlap": 0,
+    "inner_train_val_subject_overlap": 0,
+    "development_final_path_overlap": 0,
+    "v1_development_inputs_match_frozen": true,
+    "v1_dev_labels_match_base": true,
+    "base_final_inputs_keys": ["image", "path"],
+    "v1_development_inputs_keys": ["image", "path"],
+    "v1_published_images": 120,
+    "v2_partial_images": 77,
+    "v2_has_manifest": false,
+    "v1_v2_source_index_overlap": 24,
+    "mirror_spot_checks": {
+      "files": ["120.png", "71.png", "137.png"],
+      "comparison": "Pixel-exact RGB mirror of decoded parent image",
+      "all_passed": true
+    },
+    "v1_manifest_checksum_entries_checked": 126,
+    "v1_manifest_checksum_mismatches": [],
+    "all_external_image_checksums_rechecked": false,
+    "base_train_positive_support": {
+      "blur": 72,
+      "over_exp": 36,
+      "under_exp": 36,
+      "flare": 7,
+      "white_balance": 0
+    },
+    "development_positive_support": {
+      "blur": 18,
+      "over_exp": 9,
+      "under_exp": 9,
+      "flare": 3,
+      "white_balance": 0
+    },
+    "annotation_attempts": 4,
+    "accepted_weak_labels": 1,
+    "annotation_timeouts": 3,
+    "annotation_elapsed_s": [15.91, 300.11, 300.13, 300.17],
+    "accepted_label_review_required": true,
+    "no_successful_training_used_these_releases": true
+  },
+  "coding": {
+    "requested_model": "gpt-6-astra",
+    "reported_model": null,
+    "calls_charged": 3,
+    "fix_attempts_charged": 2,
+    "changed_files_applied": 0,
+    "archived_status": "failed",
+    "observed_root_error": "bwrap: No permissions to create new namespace",
+    "blocked_classification_fix_live_retested": false
+  },
+  "assets": {
+    "backbone": {
+      "path": "/mnt/data/yangt/codes/QAA/iqa_agent/models/mobileclip2_s0.pt",
+      "is_file": true,
+      "bytes": 299864852
+    },
+    "adapter": {
+      "path": "/mnt/data/yangt/codes/QAA/iqa_agent/models/iqa_adapter_v7/best.pt",
+      "is_file": true,
+      "bytes": 300984314
+    },
+    "bad_planned_score_ckpt": "plugin default (config.adapter_ckpt())",
+    "checkpoint_compatibility_verified": false
+  },
+  "outputs": {
+    "new_pt_weights": 0,
+    "pred_test_json_or_preds_jsonl": 0,
+    "knowledge_validation_level": "execution_failure"
+  },
+  "budget": {
+    "cloud_tokens_including_final_dialogue": 195936,
+    "added_samples_precharged": 240,
+    "actual_images_written": 197,
+    "published_images": 120,
+    "codex_all_retry_token_total_available": false
+  },
+  "acceptance": {
+    "all_six_measured_values": null,
+    "development_five_class_macro_f1_upper_bound": 0.8,
+    "bound_basis": "Zero positive white_balance support and _f1 returning zero for that class; remaining four F1 values are at most one.",
+    "fresh_holdout": false,
+    "end_to_end_demonstrated": false,
+    "business_acceptance_demonstrated": false
+  },
+  "platform_regression_tests": {
+    "passed": 264,
+    "duration_s": 130.29,
+    "not_evidence_of_algorithm_acceptance": true
+  }
+}

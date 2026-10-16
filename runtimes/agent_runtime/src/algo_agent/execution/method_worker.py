@@ -32,6 +32,13 @@ def main(argv: list[str]) -> int:
         return 2
     job_path = Path(argv[1])
     job = load_job(job_path)
+    limits = job.get("resource_limits") or {}
+    if limits.get("memory_mb") or limits.get("output_file_mb"):
+        import resource
+        for key, kind in (("memory_mb", resource.RLIMIT_AS), ("output_file_mb", resource.RLIMIT_FSIZE)):
+            if limits.get(key):
+                cap = int(limits[key]) * 1024 * 1024
+                resource.setrlimit(kind, (cap, cap))
     plugins = job_path.parent / "code" / "plugins"
     if plugins.exists():
         sys.path.insert(0, str(plugins))

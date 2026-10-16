@@ -1,0 +1,407 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "p_b6e0bd3aa9a9_002",
+  "task_id": "iqa_dialogue_final_20261015",
+  "version": "v2",
+  "parent_plan_id": "p_b6e0bd3aa9a9_001",
+  "summary": "> RESEARCH MODE: research reasoning produced by the cloud model `deepseek-flash`; new implementations and data experiments are permitted; acceptance targets remain fixed.\n\n## LLM research analysis\n\n### What iteration 1 actually measured\nNothing. Two execution failures block the record. (1) `run_b6e0bd3aa9a9_v1_mobileclip2_v7_score` died with `FileNotFoundError` — the MobileCLIP2-S0 backbone and `i",
+  "evidence_refs": [
+    "algorithm_plugins/iqa/methods/score_moe.py",
+    "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+    "algorithm_plugins/iqa/features.py",
+    "algorithm_plugins/iqa/metrics.py",
+    "algorithm_plugins/iqa/config.py",
+    "algorithm_plugins/iqa/data.py",
+    "inspect_data:release_v1_train445_devtest85",
+    "job:run_b6e0bd3aa9a9_v1_mobileclip2_v7_score:FileNotFoundError(missing backbone/adapter)",
+    "coding_failure:multitask_adapter_rank:method.py missing, ast parse exit 1",
+    "tool:search_assets(mobileclip backbone checkpoint) -> assets: []",
+    "ev_41d67d2fc4",
+    "ev_bf92622fb3",
+    "ev_3256dfb2de",
+    "ev_4e87fbfa1e",
+    "ev_d1665efaaa",
+    "ev_f75ffddb12",
+    "ev_c27c365f53",
+    "ev_8916d7b6a1",
+    "feedback:fb_b461e41637f4",
+    "ev_3aaac9b916",
+    "ev_bbb0672ef6",
+    "ev_65aa194cfa",
+    "ev_9dc571743f",
+    "ev_6fb3c850a1",
+    "ev_6b83e38551",
+    "ev_a79166b67c",
+    "ev_a09419214e"
+  ],
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "c1_score_moe_reference",
+      "method": "score_moe",
+      "family": "zero_rom_reference_ordinal_moe",
+      "description": "Reuse the reference zero-ROM method unchanged on release v1 (train 445 incl. 120 hflip rows, development_test 85) to obtain this run's own measured reference after the iteration-1 backbone outage. CPU-only, no checkpoint, no code change; defect side uses the calibrated physical measurement rule.",
+      "expected_gain": "Reference point (delta 0 by construction). Expected measured PLCC in the 0.66-0.85 band driven by gate accuracy (docs: single regressor ~0.66, oracle gate ~0.85). No claim of meeting the 0.85 PLCC/SRCC floors; defect macro-F1 expected well below 0.85 and capped at 0.80 by zero white_balance support.",
+      "cost_estimate": "1 experiment, CPU-only (sklearn ensembles on cached 82-d+16-d features), < 3 min wall clock, 0 GPU, 0 new samples, ROM estimate ~0.05 MB (descriptor rules + small calibration table).",
+      "failure_conditions": [
+        "Unknown signature of score_moe.run/predict -> the evaluator harness cannot invoke it; report as plugin-interface failure rather than a negative result.",
+        "dev.jsonl/eval_inputs.jsonl absent under QAA_ROOT -> FileNotFoundError from config/data resolution; infrastructure failure, not evidence against the method.",
+        "Reported per-class F1 must include support; quoting an all-class macro-F1 without stating the 0-support white_balance class would be misleading.",
+        "Not a new independent acceptance test: the historical eval split is already exposed; results are replication-only.",
+        "Do not treat this reuse run as evidence that deep backbone features are unhelpful — that route was never measured (missing assets)."
+      ],
+      "ablations": [],
+      "evidence_refs": [
+        "algorithm_plugins/iqa/methods/score_moe.py",
+        "algorithm_plugins/iqa/config.py",
+        "algorithm_plugins/iqa/data.py",
+        "algorithm_plugins/iqa/metrics.py",
+        "inspect_data:release_v1_train445_devtest85",
+        "job:run_b6e0bd3aa9a9_v1_mobileclip2_v7_score:FileNotFoundError"
+      ],
+      "is_baseline": true,
+      "source": "",
+      "action": "reuse",
+      "implementation_goal": "ARCHITECTURE: no code change; run the plugin method algorithm_plugins/iqa/methods/score_moe.py, which fits three complementary views on dev only (ExtraTrees+RF global regressor; 4-class classifier decoded as E[score]=sum_k P(level=k)*level_mean; explicit gate P(defective|x) x degradation-family router x per-severity experts) on 82-d degradation features + 16-d physical measurements + optional file-size metadata, blended by subject-group CV on dev. LOSS: not gradient-trained; selection is by dev-only CV of the blend weight (blend_step). TRAINING: deterministic seed 7, 4 CV folds, 3 ensemble seeds, min_family_rows 15, <=40 iterations per estimator; eval labels never read. PREDICTION: score clipped to 0-100; defects from the zero-ROM calibrated measurement rule (measure_lib thresholds). EXPORT: record preds.jsonl (path/image, score, 5 defect flags), config.json, rom_estimate.json, per-class support and wall clock under runs/<run_id>/; no fp16 weights exist on this path, so state the export deviation explicitly.",
+      "base_method": "",
+      "params": {
+        "method": "score_moe",
+        "feature_workers": 10,
+        "cv_folds": 4,
+        "ensemble_seeds": 3,
+        "blend_step": 0.1,
+        "min_family_rows": 15,
+        "use_metadata": true,
+        "seed": 7,
+        "train_release": "v1",
+        "train_rows": 445,
+        "n_eval_expected": 85,
+        "epochs": 40,
+        "export": "preds_jsonl_plus_config_no_weights",
+        "rom_budget_mb": 60.0,
+        "eval_labels_used_for_tuning": false,
+        "mlp_max_iter": 40
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "candidate_id": "c2_score_moe_calibrated_dose",
+      "method": "score_moe_calibrated_aug",
+      "family": "zero_rom_calibrated_dose_response",
+      "description": "Minimal modify of score_moe in model_pool/: an import shim that re-exports signature-agnostic run(*a, **k)/predict(*a, **k) wrappers around the frozen plugin module, updates only DEFAULTS keys verified to exist at import time, applies a dev-out-of-fold monotone calibration to the blended score, and exposes an augmentation dose flag (0/120/240 flipped rows) for the already-materialised hflip data.",
+      "expected_gain": "Calibration: PLCC +0.00 to +0.03 (monotone map cannot change SRCC by construction). CV/blend hparams: +0.00 to +0.02 PLCC. Augmentation dose 240 vs 0: +0.00 to +0.02 supported-class macro-F1 if flare/glare statistics are not direction-sensitive; 5-class defect macro-F1 stays capped at 0.80.",
+      "cost_estimate": "1 coded method (small shim, model_pool/score_moe_calibrated_dose/method.py), ~4 CPU-only runs (dose 0/120/240 + identity-calibration control), <=40 iterations each, plus 1 extra cached feature pass for the new flipped rows; no GPU, no checkpoint, ROM ~0.05 MB.",
+      "failure_conditions": [
+        "Fix budget is exhausted (max_fix_attempts 2/2 used): any syntax/import error terminates this candidate as failed. Mitigation: ast.parse plus a 5-row dry predict before the full run; wrapper must use (*a, **k) so an unknown run/predict signature cannot break it.",
+        "If 'from algorithm_plugins.iqa.methods import score_moe' fails due to relative-import/package context (score_moe uses 'from . import common, measure_lib'), report as an interface failure and fall back to c1; do not retry blindly.",
+        "If no dev out-of-fold score hook is exposed, the fallback is a 4-level monotone map fitted on training folds only; if dev PLCC changes by < +0.01 under both, report calibration as unsupported and revert to c1.",
+        "If rows in the release carry no 'augmented' tag, the 0/120/240 dose ablation is unimplementable: report the augmentation effect as UNMEASURABLE, not as neutral.",
+        "Isotonic on ~445 rows with many ties (severity-quantised pseudo-MOS) can overfit; check split-half dev stability before export.",
+        "Counter-signal: hflip changes flare/glare blob geometry; if flare per-class F1 falls versus dose 0, augmentation is not label-preserving for that class.",
+        "Any claim that defect_macro_f1/hardcase_macro_f1 gates are met would require label or coverage change: prohibited. white_balance support is 0 and the annotation budget (4/4) is spent.",
+        "If only the base module's DEFAULTS exists and no calibration hook is reachable, the calibration term is inert; report it as not implemented rather than claiming a calibration gain."
+      ],
+      "ablations": [
+        "A0 = c1 reference (unchanged score_moe, same split/seed).",
+        "A1 = c2 code, augmentation dose 0 -> isolates the calibration + hyperparameter change.",
+        "A2 = c2 code, dose 120; A3 = c2 code, dose 240 -> dose-response for the data intervention (requires augmented-row tagging).",
+        "A4 = identity calibration vs isotonic-on-dev-OOF -> isolates calibration.",
+        "A5 = plugin-default defect thresholds vs dev-OOF tuned thresholds -> isolates threshold tuning.",
+        "Score-head-only control if reachable: disable the family/severity experts and keep the global regressor -> attributes any gain to the MoE routing."
+      ],
+      "evidence_refs": [
+        "algorithm_plugins/iqa/methods/score_moe.py",
+        "algorithm_plugins/iqa/features.py",
+        "algorithm_plugins/iqa/metrics.py",
+        "algorithm_plugins/iqa/config.py",
+        "algorithm_plugins/iqa/data.py",
+        "inspect_data:release_v1_train445_devtest85",
+        "ev_41d67d2fc4",
+        "ev_bf92622fb3",
+        "ev_4e87fbfa1e",
+        "ev_d1665efaaa"
+      ],
+      "is_baseline": false,
+      "source": "",
+      "action": "modify",
+      "implementation_goal": "ARCHITECTURE: new file model_pool/score_moe_calibrated_dose/method.py that imports the frozen plugin module and re-exports run(*a, **k)/predict(*a, **k). At import it updates only keys present in score_moe.DEFAULTS against a whitelist (missing keys are dropped and logged, never invented); wraps predict's score output with a monotone calibration map loaded from calibration.json (isotonic breakpoints fitted on dev out-of-fold predictions; fallback = 4-level monotone map using level means fitted on training folds only) and clips to [0,100]; passes the 5 defect flags through unchanged from the zero-ROM measurement rule. LOSS: none new; the base sklearn ensembles (ExtraTrees/RF regressor, 4-class classifier, gate/router/severity experts) are kept, so any effect is attributable to hyperparameters, calibration and data dose, not to a new objective. TRAINING: CPU-only, deterministic seed 7, subject-group CV on dev, cv_folds 5, ensemble_seeds 5, blend_step 0.05, min_family_rows 12, use_metadata true, <=40 iterations per estimator; eval labels never read or used for tuning. PREDICTION: calibrated blended score; defect flags from the zero-ROM calibrated rule, thresholds optionally selected on dev out-of-fold only and reported as dev-tuned. EXPORT: preds.jsonl, calibration.json (<=1 KB), config.json including the exact DEFAULTS keys actually applied, rom_estimate.json, per-class F1 with support, and dev/dose flags under runs/<run_id>/; state explicitly that no fp16 state_dict is produced on this zero-ROM path. METRICS are computed only by the independent evaluator on the identical frozen split used by c1.",
+      "base_method": "score_moe",
+      "params": {
+        "base_module": "algorithm_plugins.iqa.methods.score_moe",
+        "cv_folds": 5,
+        "ensemble_seeds": 5,
+        "blend_step": 0.05,
+        "min_family_rows": 12,
+        "use_metadata": true,
+        "feature_workers": 10,
+        "calibration": "isotonic_on_dev_oof",
+        "calibration_fallback": "4level_monotone_map_fit_on_train_folds",
+        "calibration_min_gain_plcc": 0.01,
+        "defect_thresholds": "plugin_default_plus_dev_oof_control",
+        "aug_dose": [
+          0,
+          120,
+          240
+        ],
+        "drop_augmented_rows": true,
+        "seed": 7,
+        "epochs": 40,
+        "mlp_max_iter": 40,
+        "selection_metric": "0.5*dev_oof_PLCC + 0.5*dev_oof_supported_macroF1",
+        "eval_labels_used_for_tuning": false,
+        "export": "preds_jsonl_plus_calibration_json_no_weights",
+        "rom_budget_mb": 60.0,
+        "n_eval_expected": 85
+      }
+    }
+  ],
+  "hypotheses": [
+    "H1 (reference, measurable now): the zero-ROM score_moe reference, executed on release v1 with seed 7, yields a measurable PLCC/SRCC on the 85-row development_test split within the 0.66-0.85 documentation band, without any pretrained backbone; this is the first attributable measurement in this task after the iteration-1 asset outage.",
+    "H2 (gate dominates): PLCC is limited by the good-vs-defective gate rather than the severity experts, so any PLCC change should track gate accuracy/ROC-AUC, not severity-fit changes; the oracle-gate PLCC ~0.85 claim (plugin docstring) is an upper reference, not a measured result.",
+    "H3 (calibration): a monotone calibration fitted on dev out-of-fold predictions can raise PLCC by >= 0.01 but cannot change SRCC at all (rank-preserving), so any observed SRCC change must come from the hyperparameter change, not the calibration.",
+    "H4 (augmentation dose): expanding hflip coverage to 240 flipped rows (vs 0 and 120) does not lower dev PLCC by more than 0.01 but may raise supported-class macro-F1 by >= 0.01; a flare per-class F1 drop would falsify label-preservation for that class.",
+    "H5 (structural cap): the 5-class defect_macro_f1 gate 0.85 is unattainable under current label coverage (white_balance support 0 -> ceiling 0.80) and flare (3 dev_test positives < MIN_CLASS_SUPPORT 5) is unmeasurable; this is a coverage fact, not a model-quality statement.",
+    "H6 (grade agreement): grade_agreement at the configured bins (85/70/50) is measurable on this split and is more likely to clear 0.90 than PLCC/SRCC, because it only requires coarse bucket membership.",
+    "H7 (unresolvable noise): the good-class pseudo-MOS values 88.0-95.9 are derived from a filename hash, so pixel-independent variance is irreducible and any PLCC near 0.85 is at the ceiling for this benchmark, not a comfortable target.",
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: none identified yet.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1.",
+    "Class-balanced BCE + threshold tuning recovers rare-class recall without regressing the frequent classes."
+  ],
+  "controls": [
+    "A0: c1 unchanged score_moe under the identical frozen split, seed 7 and evaluator metric code; sole source of delta attribution.",
+    "A1: c2 code with augmentation dose 0 -> isolates calibration + hyperparameter effect from any data effect.",
+    "A2/A3: c2 code with dose 120 and 240 -> dose-response for the materialised hflip data (requires an 'augmented' tag in the release; otherwise declared unmeasurable).",
+    "A4: identity calibration vs isotonic-on-dev-OOF -> isolates the calibration contribution and tests H3.",
+    "A5: plugin-default defect thresholds vs dev-OOF tuned thresholds -> isolates threshold tuning from model change; thresholds tuning only reported as dev-tuned.",
+    "Shared: frozen eval split and metric implementation for every variant; eval labels never used for fitting or selection; ROM estimate recorded per export; no candidate may alter labels, drop hard samples or lower floors.",
+    "Negative control for the data op: re-run A1 and A2 twice with different seeds to check the augmentation delta exceeds seed-to-seed noise before any claim.",
+    "Interface control: ast.parse plus a 5-row dry prediction before the full c2 run, because 2/2 fix attempts are already consumed.",
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v2",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir). Label-gap classes are filled offline: local_largemodel/qwen3.8-27b proposes candidate defect labels (scripts/iqa_annotate.py, prompt iqa-prelabel-v1) and every candidate goes through human review before it can enter a dataset version; classes with no measurable support receive severity-matched augmentation (see the data plan in the research report).",
+    "source": "qaa_iqa_frozen_benchmark + local_vlm_prelabels(qwen3.8-27b) + severity-matched augmentation",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)",
+      "human-reviewed local-VLM pre-labels (provenance: model_id+prompt_version)",
+      "train-split-only augmentation for zero/low-support classes"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method; augmentation never touches the frozen eval in the same protocol version",
+    "operations": [
+      {
+        "schema_version": "1.0",
+        "operation_id": "aug_hflip_dose_240",
+        "kind": "augment",
+        "split": "train",
+        "hypothesis": "Extending hflip coverage from 120/325 to 240/325 train rows (non-overlapping subset, distinct seed) is a dose increase that reduces variance of the frozen-feature MoE heads: at dose 120 and 240 dev supported-class macro-F1 exceeds dose 0 by >= 0.01 while dev PLCC stays within +/-0.01. Counter-signal falsifying label-preservation: flare per-class F1 falls monotonically with dose, because hflip changes glare/light-source geometry. Closes the augmentation experiment that release v1 materialised but iteration 1 never trained on.",
+        "source_id": "",
+        "params": {
+          "count": 120,
+          "seed": 11,
+          "transform": "hflip",
+          "label_preserving": true,
+          "subset": "non_overlapping_with_iteration1_seed7_rows",
+          "dose_levels_compared": [
+            0,
+            120,
+            240
+          ],
+          "note": "train split only; development_test and final_test untouched; uses the remaining 120 of the 240 added-samples cap; requires the release to tag augmented rows for the dose ablation to be executable"
+        }
+      }
+    ]
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v2",
+    "primary_metric": "plcc",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v2",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params.",
+    "stage": "development"
+  },
+  "execution_dag": [
+    {
+      "schema_version": "1.0",
+      "step_id": "prepare_assets",
+      "kind": "experiment",
+      "depends_on": [],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "coding",
+      "kind": "coding",
+      "depends_on": [
+        "prepare_assets"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_score_moe",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "score_moe"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_score_moe_calibrated_aug",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "score_moe_calibrated_aug"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "evaluate",
+      "kind": "evaluation",
+      "depends_on": [
+        "run_score_moe",
+        "run_score_moe_calibrated_aug"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "analyze",
+      "kind": "analysis",
+      "depends_on": [
+        "evaluate"
+      ],
+      "params": {}
+    }
+  ],
+  "change_scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "score_moe",
+      "score_moe_calibrated_aug"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [
+      "augment",
+      "resample",
+      "filter",
+      "annotate",
+      "relabel",
+      "extend"
+    ],
+    "parameter_space": {
+      "score_moe": {
+        "method": "score_moe",
+        "feature_workers": 10,
+        "cv_folds": 4,
+        "ensemble_seeds": 3,
+        "blend_step": 0.1,
+        "min_family_rows": 15,
+        "use_metadata": true,
+        "seed": 7,
+        "train_release": "v1",
+        "train_rows": 445,
+        "n_eval_expected": 85,
+        "epochs": 40,
+        "export": "preds_jsonl_plus_config_no_weights",
+        "rom_budget_mb": 60.0,
+        "eval_labels_used_for_tuning": false,
+        "mlp_max_iter": 40
+      },
+      "score_moe_calibrated_aug": {
+        "base_module": "algorithm_plugins.iqa.methods.score_moe",
+        "cv_folds": 5,
+        "ensemble_seeds": 5,
+        "blend_step": 0.05,
+        "min_family_rows": 12,
+        "use_metadata": true,
+        "feature_workers": 10,
+        "calibration": "isotonic_on_dev_oof",
+        "calibration_fallback": "4level_monotone_map_fit_on_train_folds",
+        "calibration_min_gain_plcc": 0.01,
+        "defect_thresholds": "plugin_default_plus_dev_oof_control",
+        "aug_dose": [
+          0,
+          120,
+          240
+        ],
+        "drop_augmented_rows": true,
+        "seed": 7,
+        "epochs": 40,
+        "mlp_max_iter": 40,
+        "selection_metric": "0.5*dev_oof_PLCC + 0.5*dev_oof_supported_macroF1",
+        "eval_labels_used_for_tuning": false,
+        "export": "preds_jsonl_plus_calibration_json_no_weights",
+        "rom_budget_mb": 60.0,
+        "n_eval_expected": 85
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v2",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 8,
+      "max_fix_attempts": 2,
+      "max_experiments": 9,
+      "max_epochs": 40,
+      "max_wall_clock_s": 2700.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 3,
+      "max_iterations": 3,
+      "max_research_steps": 12,
+      "max_candidates": 2,
+      "max_data_operations": 8,
+      "max_added_samples": 240,
+      "max_annotation_samples": 4,
+      "max_memory_mb": 0,
+      "max_output_file_mb": 2048
+    },
+    "max_iterations": 3,
+    "approval_mode": "scoped_auto"
+  },
+  "cost_estimate": "{'usage': {'prompt_tokens': 27888, 'completion_tokens': 13230, 'total_tokens': 41118, 'prompt_tokens_details': {'cached_tokens': 14976}, 'completion_tokens_details': {'reasoning_tokens': 7647}, 'prompt_cache_hit_tokens': 14976, 'prompt_cache_miss_tokens': 12912}, 'source': 'cloud', 'model': 'deepseek-flash'}",
+  "stop_rules": {
+    "schema_version": "1.0",
+    "require_all_hard_constraints": true,
+    "min_metric_delta": 0.0,
+    "max_no_improve": 3
+  },
+  "created_at": "2026-10-15T08:48:51.200069+00:00"
+}

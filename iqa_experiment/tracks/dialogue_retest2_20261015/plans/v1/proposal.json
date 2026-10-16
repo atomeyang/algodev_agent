@@ -1,0 +1,401 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "p_711fe4fcb779_001",
+  "task_id": "iqa_dialogue_retest2_20261015",
+  "version": "v1",
+  "parent_plan_id": null,
+  "summary": "> RESEARCH MODE: research reasoning produced by the cloud model `deepseek-flash`; new implementations and data experiments are permitted; acceptance targets remain fixed.\n\n## LLM research analysis\n\n### 证据基线与已测事实\n- 冻结基准预览（seed 7，development_only，非 frozen）：train 325，dev 85；缺陷支持数 train blur 72 / over_exp 36 / under_exp 36 / flare 7 / white_balance 0，dev blur 18 / over 9 / under 9 / flare 3 / white_ba",
+  "evidence_refs": [
+    "inspect_data: releases=[] source_preview preview_not_frozen seed=7 train=325 dev=85 support{blur:72,over:36,under:36,flare:7,wb:0}",
+    "algorithm_plugins/iqa/metrics.py: MIN_CLASS_SUPPORT<5 → class F1=0, all-class macro capped at 4/5",
+    "algorithm_plugins/iqa/methods/score_moe.py: docstring dev measurements (global regressor ~0.66 PLCC; oracle gate ~0.85; hash-derived good scores)",
+    "algorithm_plugins/iqa/methods/multitask_adapter.py: MobileCLIP2-S0 (11.41M) + score/defect heads, pos_weight clamp, dev-only threshold search",
+    "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py: reproduction baseline (macro-F1 0.424 / PLCC 0.476 reported)",
+    "algorithm_plugins/iqa/config.py: DEFECTS list, ROM_BUDGET_MB=60, rom_estimate=params*2MB, floors PLCC/SRCC 0.90 (differs from task_spec 0.85)",
+    "ev_f2a73ee21d: multi-task IQA with PLCC loss (abstract only, not reproduced)",
+    "ev_f9e0a6d5ba: learning-to-rank for distortion level (abstract only, not reproduced)",
+    "ev_58705ff0e0",
+    "ev_fdf0389c32",
+    "ev_f2a73ee21d",
+    "ev_ad087b3275",
+    "ev_f9e0a6d5ba",
+    "ev_a181fab4a5",
+    "ev_d0da6b610e",
+    "ev_3557bc73b1"
+  ],
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "c1_baseline_repro",
+      "method": "mobileclip2_v7_score",
+      "family": "reproduction-baseline",
+      "description": "复现冻结协议下的参考基线：冻结 MobileCLIP2-S0 + 已训练 KONIQ adapter 输出连续分数，缺陷侧复用零 ROM 标定测量规则（calibrated measurement + 5 缺陷阈值）。不动代码，只做度量复现，作为所有 Δ 的分母。",
+      "expected_gain": "0（参照点）；用于验证本地复现与量化与历史记录的差距",
+      "cost_estimate": "一次特征抽取 + 前向，约 2-5 分钟 GPU / 10-20 分钟 CPU；0 训练 epoch",
+      "failure_conditions": [
+        "pretrained 或 adapter 权重缺失 → FileNotFoundError，说明资产未就绪，本轮其余候选也不应启动",
+        "复现出的 PLCC/defect 指标与历史记录差异 >0.05 且方向不符 → 协议或联表匹配（path/image 名回退）出错，必须先修协议而非调模型",
+        "eval 预测行数 < labeled 行数（n_matched < n_labeled）→ 路径匹配失败，指标无效",
+        "任何对 eval/final 标签的读取用于训练或调参"
+      ],
+      "ablations": [
+        "作为其他候选的对照母本",
+        "与 measure-only 规则对照以分离 backbone 贡献"
+      ],
+      "evidence_refs": [
+        "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+        "algorithm_plugins/iqa/config.py",
+        "algorithm_plugins/iqa/metrics.py"
+      ],
+      "is_baseline": true,
+      "source": "reference_methods",
+      "action": "reuse",
+      "implementation_goal": "架构：加载 pretrained `mobileclip2_s0.pt` 与 adapter `iqa_adapter_v7/best.pt`，走 `clip_backbone.load_trained_adapter`，visual 特征 512-d，仅跑 score 头；缺陷由 `measure_lib.measure_defects_cached` + `config.measure_thresholds()` 产出。损失/训练：无（推理）。预测：score 裁剪到 [0,100]，缺陷为布尔。导出：不产出新权重。",
+      "base_method": "mobileclip2_v7_score",
+      "params": {
+        "score_ckpt": "",
+        "image_size": 256,
+        "feature_batch": 32,
+        "feature_cache": true,
+        "defect_threshold_source": "registry/measure_thresholds.json",
+        "split": "development_test_first_then_final_untouched",
+        "seed": 7,
+        "epochs": 40,
+        "mlp_max_iter": 40
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "candidate_id": "c2_ordinal_rank_multitask_aug",
+      "method": "multitask_adapter",
+      "family": "dual-head-ordinal-ranking",
+      "description": "在冻结 MobileCLIP2-S0 视觉编码器上改造双头：score 头改为 4 级 ordinal 分类取期望 + L1 回归项 + 同 split 内 pairwise ranking 损失（针对 pseudo-MOS 的严重度量化结构）；缺陷头保留 5 独立 logit，类别加权 BCE，正权重按支持数反比并设上限；阈值只从 dev/val 网格搜索；训练数据加 hflip 增强与 flare 重采样。全部仅用 train/val，final_test 只预测。",
+      "expected_gain": "score 侧：相对单头 L1 回归在 dev 上 +0.03~0.10 PLCC/SRCC（若伪 MOS 的 4 级结构可学）；缺陷侧：flare/blur 的小样本 F1 稳定（可能 +0.03~0.08 于覆盖类 macro）。若 dev 上无提升，即为「标签结构而非模型」限制的正面证据",
+      "cost_estimate": "特征缓存后 30 epoch 头训练约 3-10 分钟 GPU；含抽特征 < 30 分钟；0 额外大模型下载",
+      "failure_conditions": [
+        "dev PLCC/SRCC 未超过基线 +0.03 且 ordinal CE 权重消融无差异 → 停止该方向，判定为标签结构限制而非建模不足",
+        "覆盖类 defect macro-F1 Δ < 0.02 → 增强/重采样无效，撤销并以基线缺陷规则交付",
+        "white_balance 仍 0 支持 → 必须报告为不可测，禁止以调阈值或弱标注把它标记为达标",
+        "hflip 增强或重采样引入重复样本跨 subject group / 流入 val 或 final_test → 实验作废重跑",
+        "阈值在 dev 以外数据上搜索、或用 eval 反馈迭代 → 泄漏，结果无效",
+        "训练 epoch > max_epochs(40) 或 wall clock 超时，或 fp16 导出后 ROM ≥ 60MB"
+      ],
+      "ablations": [
+        "去掉 hflip 增强（同 seed）",
+        "仅 L1 回归头，去 ordinal CE/ranking",
+        "去 pairwise ranking 保留 ordinal CE",
+        "阈值固定 0.5 vs dev 网格调优",
+        "pos_weight_scale=1.0（无类别平衡）"
+      ],
+      "evidence_refs": [
+        "algorithm_plugins/iqa/methods/multitask_adapter.py",
+        "algorithm_plugins/iqa/methods/score_moe.py",
+        "algorithm_plugins/iqa/metrics.py",
+        "algorithm_plugins/iqa/config.py",
+        "ev_f2a73ee21d",
+        "ev_f9e0a6d5ba"
+      ],
+      "is_baseline": false,
+      "source": "reference_code_files + feedback",
+      "action": "modify",
+      "implementation_goal": "架构：冻结 visual（11.41M，fp16 约 22.8MB），共享 512-d 特征 → trunk(Linear 512→256 + LayerNorm + GELU + Dropout 0.15) → (a) score 子头：4 个 level 逻辑值，`p=softmax`，`s_hat=Σ p_k·level_k`，level_k 用 train 该类均值（good/light/medium/heavy）估计，避免把 hash 噪声当可学信号；(b) defect 子头：5 个 logit。训练：AdamW，lr 1e-3，wd 1e-2，30 epoch，batch 64，早停按 val 组合分；损失 = 0.7·ordinal CE(level) + 0.3·L1(s_hat, score)/25 + 0.2·pairwise logistic ranking（同 batch 内 |Δscore|>5 的对，权重按 |Δ| 归一）+ 1.0·BCE(defect, pos_weight 上限 12)。特征预抽取并缓存，头可在秒级重训以支持迭代。预测：`E[score]` 裁剪 [0,100]；缺陷阈值 dev 网格 0.05-0.95 步长 0.025 逐类 F1 最大化，仅覆盖有支持类。导出：fp16 头权重 + 冻结编码器 + 阈值 JSON，落盘到 task 目录 runs/<run_id>/；ROM 用 config.rom_estimate 估算（阈值不作调低）。",
+      "base_method": "multitask_adapter",
+      "params": {
+        "epochs": 30,
+        "lr": 0.001,
+        "weight_decay": 0.01,
+        "hidden": 256,
+        "dropout": 0.15,
+        "batch_size": 64,
+        "loss": {
+          "ordinal_ce_weight": 0.7,
+          "l1_weight": 0.3,
+          "pairwise_rank_weight": 0.2,
+          "pairwise_min_score_gap": 5.0,
+          "bce_weight": 1.0
+        },
+        "pos_weight_scale": 1.5,
+        "min_pos_weight": 1.0,
+        "max_pos_weight": 12.0,
+        "tune_thresholds": true,
+        "threshold_grid_step": 0.025,
+        "defect_threshold_default": 0.5,
+        "augment": {
+          "hflip": true,
+          "extra_samples": 240,
+          "train_only": true
+        },
+        "image_size": 256,
+        "feature_batch": 32,
+        "feature_cache": true,
+        "early_stop_patience": 6,
+        "seed": 7,
+        "export_format": "fp16_heads_plus_frozen_encoder",
+        "mlp_max_iter": 40
+      }
+    }
+  ],
+  "hypotheses": [
+    "H1：伪 MOS 是 4 级严重度量化（good/light/medium/heavy），4 级 ordinal 头取期望 + L1 的 PLCC 高于纯 L1 全局回归头。",
+    "H2：同 split 内 pairwise ranking 损失在不改变预测尺度的情况下提升 SRCC，且不与 L1 冲突。",
+    "H3：train 上 hflip 增强（标签保持）降低双头方差，对 score PLCC 与覆盖类缺陷 F1 有正贡献。",
+    "H4：flare（train 7 / dev 3）因正例过少而不稳定，类别重采样 + pos_weight 上限能提高其 F1 稳定性但仍可能不可测。",
+    "H5：good 图分数由文件名 hash 决定（像素无关），构成任何 PLCC 上限，模型改动无法突破该噪声层。",
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: none identified yet.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1."
+  ],
+  "controls": [
+    "C0 基线复现 mobileclip2_v7_score（不训练）。",
+    "C1 同架构同 seed，但关闭 hflip 增强与重采样，隔离数据干预。",
+    "C2 同数据，score 头退化为纯 L1 回归，隔离 ordinal/ranking 损失干预。",
+    "C3 缺陷阈值固定 0.5 vs dev 网格调优，隔离阈值策略干预。",
+    "C4 pos_weight_scale=1.0，隔离类别平衡干预。",
+    "全部控制只用 train/val，final_test 仅一次预测，指标由独立 evaluator 计算。",
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v1",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir). Label-gap classes are filled offline: local_largemodel/qwen3.8-27b proposes candidate defect labels (scripts/iqa_annotate.py, prompt iqa-prelabel-v1) and every candidate goes through human review before it can enter a dataset version; classes with no measurable support receive severity-matched augmentation (see the data plan in the research report).",
+    "source": "qaa_iqa_frozen_benchmark + local_vlm_prelabels(qwen3.8-27b) + severity-matched augmentation",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)",
+      "human-reviewed local-VLM pre-labels (provenance: model_id+prompt_version)",
+      "train-split-only augmentation for zero/low-support classes"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method; augmentation never touches the frozen eval in the same protocol version",
+    "operations": [
+      {
+        "schema_version": "1.0",
+        "operation_id": "aug_hflip_train",
+        "kind": "augment",
+        "split": "train",
+        "hypothesis": "水平翻转对伪 MOS 与 5 类缺陷标签均是标签保持变换，可扩大 325 张 train 的有效样本量并降低双头方差，不改变类别先验。",
+        "source_id": "",
+        "params": {
+          "transform": "hflip",
+          "label_preserving": true,
+          "count": 240
+        }
+      },
+      {
+        "schema_version": "1.0",
+        "operation_id": "resample_flare_positive",
+        "kind": "resample",
+        "split": "train",
+        "hypothesis": "flare 正例仅 7 个，占总支持 <3%，重采样可在不改变测试集的前提下提高 flare 头的稳定性与 F1 估计可信度。",
+        "source_id": "",
+        "params": {
+          "count": 24,
+          "seed": 7,
+          "defect": "flare",
+          "weight": 3.0
+        }
+      },
+      {
+        "schema_version": "1.0",
+        "operation_id": "weak_annotate_wb_probe",
+        "kind": "annotate",
+        "split": "train",
+        "hypothesis": "用本地 VLM 对 4 张 train 图做白平衡弱标注，可初步判断 white_balance 是数据缺口还是标注缺口；若仍为 0 支持，则该类在本轮明确不可测。",
+        "source_id": "",
+        "params": {
+          "limit": 4,
+          "min_confidence": 0.7,
+          "rubric": "white_balance_present",
+          "labels": "weak_only_not_ground_truth"
+        }
+      }
+    ]
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v1",
+    "primary_metric": "plcc",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v1",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params.",
+    "stage": "development"
+  },
+  "execution_dag": [
+    {
+      "schema_version": "1.0",
+      "step_id": "prepare_assets",
+      "kind": "experiment",
+      "depends_on": [],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "coding",
+      "kind": "coding",
+      "depends_on": [
+        "prepare_assets"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_mobileclip2_v7_score",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "mobileclip2_v7_score"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "run_multitask_adapter",
+      "kind": "experiment",
+      "depends_on": [
+        "coding"
+      ],
+      "params": {
+        "method": "multitask_adapter"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "evaluate",
+      "kind": "evaluation",
+      "depends_on": [
+        "run_mobileclip2_v7_score",
+        "run_multitask_adapter"
+      ],
+      "params": {}
+    },
+    {
+      "schema_version": "1.0",
+      "step_id": "analyze",
+      "kind": "analysis",
+      "depends_on": [
+        "evaluate"
+      ],
+      "params": {}
+    }
+  ],
+  "change_scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "mobileclip2_v7_score",
+      "multitask_adapter"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [
+      "augment",
+      "resample",
+      "filter",
+      "annotate",
+      "relabel",
+      "extend"
+    ],
+    "parameter_space": {
+      "mobileclip2_v7_score": {
+        "score_ckpt": "",
+        "image_size": 256,
+        "feature_batch": 32,
+        "feature_cache": true,
+        "defect_threshold_source": "registry/measure_thresholds.json",
+        "split": "development_test_first_then_final_untouched",
+        "seed": 7,
+        "epochs": 40,
+        "mlp_max_iter": 40
+      },
+      "multitask_adapter": {
+        "epochs": 30,
+        "lr": 0.001,
+        "weight_decay": 0.01,
+        "hidden": 256,
+        "dropout": 0.15,
+        "batch_size": 64,
+        "loss": {
+          "ordinal_ce_weight": 0.7,
+          "l1_weight": 0.3,
+          "pairwise_rank_weight": 0.2,
+          "pairwise_min_score_gap": 5.0,
+          "bce_weight": 1.0
+        },
+        "pos_weight_scale": 1.5,
+        "min_pos_weight": 1.0,
+        "max_pos_weight": 12.0,
+        "tune_thresholds": true,
+        "threshold_grid_step": 0.025,
+        "defect_threshold_default": 0.5,
+        "augment": {
+          "hflip": true,
+          "extra_samples": 240,
+          "train_only": true
+        },
+        "image_size": 256,
+        "feature_batch": 32,
+        "feature_cache": true,
+        "early_stop_patience": 6,
+        "seed": 7,
+        "export_format": "fp16_heads_plus_frozen_encoder",
+        "mlp_max_iter": 40
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v1",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 8,
+      "max_fix_attempts": 2,
+      "max_experiments": 9,
+      "max_epochs": 40,
+      "max_wall_clock_s": 2700.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 3,
+      "max_iterations": 3,
+      "max_research_steps": 12,
+      "max_candidates": 2,
+      "max_data_operations": 8,
+      "max_added_samples": 240,
+      "max_annotation_samples": 4,
+      "max_memory_mb": 0,
+      "max_output_file_mb": 2048
+    },
+    "max_iterations": 3,
+    "approval_mode": "scoped_auto"
+  },
+  "cost_estimate": "{'usage': {'prompt_tokens': 19374, 'completion_tokens': 7713, 'total_tokens': 27087, 'prompt_tokens_details': {'cached_tokens': 7680}, 'completion_tokens_details': {'reasoning_tokens': 3658}, 'prompt_cache_hit_tokens': 7680, 'prompt_cache_miss_tokens': 11694}, 'source': 'cloud', 'model': 'deepseek-flash'}",
+  "stop_rules": {
+    "schema_version": "1.0",
+    "require_all_hard_constraints": true,
+    "min_metric_delta": 0.0,
+    "max_no_improve": 3
+  },
+  "created_at": "2026-10-15T08:01:18.298308+00:00"
+}

@@ -60,7 +60,9 @@ def _child_env() -> Dict[str, str]:
     ``algo_agent`` package (and any existing PYTHONPATH) so runs work whether or
     not the project was pip-installed.
     """
-    env = dict(os.environ)
+    env = {key: value for key, value in os.environ.items()
+           if not any(word in key.upper() for word in
+                      ("API_KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTHORIZATION"))}
     here = Path(__file__).resolve()
     candidates = [str(here.parents[2])]  # .../src, so `import algo_agent` works
     for ancestor in here.parents:
@@ -134,6 +136,8 @@ class Runner:
             "inference_weights": spec.env.get("inference_weights", ""),
             "stage": spec.env.get("stage", "legacy"),
             "runtime_env": runtime_env,
+            "resource_limits": {"memory_mb": task_spec.budget.max_memory_mb,
+                                "output_file_mb": task_spec.budget.max_output_file_mb},
         }
         self.repo.save_experiment(spec)
         return self.repo.create_job(spec.task_id, "experiment", idem, run_id=spec.run_id, payload=payload)
@@ -162,6 +166,8 @@ class Runner:
     # ------------------------------------------------------------------ #
     def execute_job(self, job: C.JobRecord) -> Dict[str, Any]:
         assert job.kind == "experiment", f"unsupported job kind {job.kind}"
+        if not self.repo.heartbeat_job(job):
+            return {"status": "failed", "error": "job lease lost before execution"}
         payload = job.payload
         tp = TaskPaths(self.settings, payload["task_slug"])
         release = tp.release_dir(payload["data_version"])
@@ -196,15 +202,19 @@ class Runner:
                 proc = subprocess.Popen(argv, stdout=log, stderr=subprocess.STDOUT,
                                         cwd=str(out_dir), env=env, start_new_session=True)
             except Exception as exc:
-                self.repo.update_job(job.job_id, status=JobStatus.FAILED.value,
-                                     result={"error": f"spawn failed: {exc}"})
+                self.repo.finish_job(job, "failed", {"error": f"spawn failed: {exc}"})
                 return {"status": "failed", "error": str(exc)}
-            self.repo.update_job(job.job_id, pid=proc.pid)
+            owns_lease = self.repo.heartbeat_job(job, pid=proc.pid)
             deadline = time.monotonic() + timeout
-            reason = ""
+            heartbeat_at = time.monotonic()
+            reason = "" if owns_lease else "lease_lost"
             while proc.poll() is None:
                 state = self.repo.get_state(job.task_id)
                 current = self.repo.get_job(job.job_id)
+                if time.monotonic() - heartbeat_at >= 5:
+                    if not self.repo.heartbeat_job(job):
+                        reason = "lease_lost"
+                    heartbeat_at = time.monotonic()
                 if state.phase in {"stopped", "failed"} or current.status == JobStatus.CANCEL_REQUESTED.value:
                     reason = "cancelled"
                 elif time.monotonic() >= deadline:
@@ -223,13 +233,13 @@ class Runner:
                     os.killpg(proc.pid, signal.SIGKILL)
                     proc.wait()
                 status = "cancelled" if reason == "cancelled" else "failed"
-                self.repo.update_job(job.job_id, status=status, result={"error": reason})
+                self.repo.finish_job(job, status, {"error": reason})
                 return {"status": status, "error": reason}
             code = proc.wait()
 
         # a cancel requested mid-run wins over the child exit code
         if self.repo.get_job(job.job_id).status == JobStatus.CANCEL_REQUESTED.value:
-            self.repo.update_job(job.job_id, status=JobStatus.CANCELLED.value, result={"cancelled": True})
+            self.repo.finish_job(job, "cancelled", {"cancelled": True})
             return {"status": "cancelled"}
 
         result = read_json(out_dir / "result.json", {})
@@ -238,7 +248,8 @@ class Runner:
             verify_release(tp, payload["data_version"])
         status = (JobStatus.SUCCEEDED.value if code == 0 and result.get("status") in {"succeeded", "completed"}
                   else JobStatus.FAILED.value)
-        self.repo.update_job(job.job_id, status=status, result={**result, "exit_code": code})
+        if not self.repo.finish_job(job, status, {**result, "exit_code": code}):
+            return {"status": "failed", "error": "stale attempt result rejected"}
         return {"status": status, "exit_code": code, "result": result}
 
 

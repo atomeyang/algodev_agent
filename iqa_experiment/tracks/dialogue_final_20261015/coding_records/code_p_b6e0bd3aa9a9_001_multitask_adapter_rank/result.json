@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "coding_id": "code_p_b6e0bd3aa9a9_001_multitask_adapter_rank",
+  "status": "failed",
+  "diff": "",
+  "changed_files": [],
+  "tool": "codex_cli",
+  "model": "gpt-6-astra",
+  "base_version": "e626ddff9f50e155e5d848c745b3f0e993a03478dbeeceb4ff3707b3d9f35c00",
+  "dependency_lock": "pyproject.toml",
+  "verifications": [
+    {
+      "schema_version": "1.0",
+      "command": "python -c \"import ast,pathlib; ast.parse(pathlib.Path('model_pool/multitask_adapter_rank/method.py').read_text())\"",
+      "exit_code": 1,
+      "stdout_tail": "",
+      "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/local/lib/python3.12/pathlib.py\", line 1027, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/pathlib.py\", line 1013, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'model_pool/multitask_adapter_rank/method.py'\n"
+    },
+    {
+      "schema_version": "1.0",
+      "command": "python -c \"from algorithm_plugins.common.plugin import load_method; m=load_method('model_pool/multitask_adapter_rank/method.py'); assert callable(m.run); assert callable(m.predict)\"",
+      "exit_code": 1,
+      "stdout_tail": "",
+      "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/mnt/data/yangt/codes/QAA/algo_agent/algorithm_plugins/common/plugin.py\", line 87, in load_method\n    raise FileNotFoundError(f\"method entry not found: {path}\")\nFileNotFoundError: method entry not found: /mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/runtime/coding/workspaces/code_p_b6e0bd3aa9a9_001_multitask_adapter_rank_125a50ab/model_pool/multitask_adapter_rank/method.py\n"
+    },
+    {
+      "schema_version": "1.0",
+      "command": "entry exists",
+      "exit_code": 1,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    }
+  ],
+  "cost": {
+    "usage": {
+      "input_tokens": 133240,
+      "cached_input_tokens": 101432,
+      "cache_write_input_tokens": 22855,
+      "output_tokens": 3521,
+      "reasoning_output_tokens": 1113
+    },
+    "requested_model": "gpt-6-astra",
+    "reported_model": null,
+    "model_source": "user_config_snapshot",
+    "hard_token_cap": false
+  },
+  "open_issues": [
+    "no implementation changes detected"
+  ],
+  "change_requests": [],
+  "archive_ref": "iqa_experiment/tracks/dialogue_final_20261015/coding_records/code_p_b6e0bd3aa9a9_001_multitask_adapter_rank",
+  "archived_at": "2026-10-15T08:42:54.667302+00:00"
+}

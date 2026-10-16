@@ -1,0 +1,98 @@
+{
+  "status": "pending",
+  "plan_id": "p_b6e0bd3aa9a9_002",
+  "plan_hash": "befee7ae4681dd9b1b21de62449842c8d7349696cf1301198c3fa5bd20a7a2a5",
+  "scope": {
+    "schema_version": "1.0",
+    "allowed_methods": [
+      "score_moe",
+      "score_moe_calibrated_aug"
+    ],
+    "allowed_data_sources": [
+      "qaa_iqa_frozen_benchmark",
+      "iqa_agent_dev_split",
+      "iqa_agent_measure_registry"
+    ],
+    "allowed_recipe_changes": [
+      "augment",
+      "resample",
+      "filter",
+      "annotate",
+      "relabel",
+      "extend"
+    ],
+    "parameter_space": {
+      "score_moe": {
+        "method": "score_moe",
+        "feature_workers": 10,
+        "cv_folds": 4,
+        "ensemble_seeds": 3,
+        "blend_step": 0.1,
+        "min_family_rows": 15,
+        "use_metadata": true,
+        "seed": 7,
+        "train_release": "v1",
+        "train_rows": 445,
+        "n_eval_expected": 85,
+        "epochs": 40,
+        "export": "preds_jsonl_plus_config_no_weights",
+        "rom_budget_mb": 60.0,
+        "eval_labels_used_for_tuning": false,
+        "mlp_max_iter": 40
+      },
+      "score_moe_calibrated_aug": {
+        "base_module": "algorithm_plugins.iqa.methods.score_moe",
+        "cv_folds": 5,
+        "ensemble_seeds": 5,
+        "blend_step": 0.05,
+        "min_family_rows": 12,
+        "use_metadata": true,
+        "feature_workers": 10,
+        "calibration": "isotonic_on_dev_oof",
+        "calibration_fallback": "4level_monotone_map_fit_on_train_folds",
+        "calibration_min_gain_plcc": 0.01,
+        "defect_thresholds": "plugin_default_plus_dev_oof_control",
+        "aug_dose": [
+          0,
+          120,
+          240
+        ],
+        "drop_augmented_rows": true,
+        "seed": 7,
+        "epochs": 40,
+        "mlp_max_iter": 40,
+        "selection_metric": "0.5*dev_oof_PLCC + 0.5*dev_oof_supported_macroF1",
+        "eval_labels_used_for_tuning": false,
+        "export": "preds_jsonl_plus_calibration_json_no_weights",
+        "rom_budget_mb": 60.0,
+        "n_eval_expected": 85
+      }
+    },
+    "write_paths": [
+      "model_pool"
+    ],
+    "evaluation_protocol_id": "iqa_frozen_v2",
+    "upload_policy": "restricted",
+    "resource_budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 8,
+      "max_fix_attempts": 2,
+      "max_experiments": 9,
+      "max_epochs": 40,
+      "max_wall_clock_s": 2700.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 3,
+      "max_iterations": 3,
+      "max_research_steps": 12,
+      "max_candidates": 2,
+      "max_data_operations": 8,
+      "max_added_samples": 240,
+      "max_annotation_samples": 4,
+      "max_memory_mb": 0,
+      "max_output_file_mb": 2048
+    },
+    "max_iterations": 3,
+    "approval_mode": "scoped_auto"
+  }
+}

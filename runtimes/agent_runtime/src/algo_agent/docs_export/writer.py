@@ -15,9 +15,14 @@ from .. import __version__
 from .docx_utils import add_kv_table, add_markdown, new_document, save
 
 
+def _task_id(repo: Repository, slug: str) -> str:
+    return next((row["task_id"] for row in repo.list_tasks() if row["task_slug"] == slug), slug)
+
+
 def _task_summary_rows(repo: Repository, slug: str) -> List[Dict[str, Any]]:
-    state = repo.get_state(slug)
-    spec = repo.get_spec(slug)
+    task_id = _task_id(repo, slug)
+    state = repo.get_state(task_id)
+    spec = repo.get_spec(task_id)
     return [
         {"field": "task_id", "value": spec.task_id},
         {"field": "task_slug", "value": spec.task_slug},
@@ -36,38 +41,41 @@ def _task_summary_rows(repo: Repository, slug: str) -> List[Dict[str, Any]]:
 
 
 def export_task_overview(settings: Settings, repo: Repository, slug: str) -> str:
+    task_id = _task_id(repo, slug)
+    spec = repo.get_spec(task_id)
     tp = TaskPaths(settings, slug)
     doc = new_document(f"{slug} - Algorithm R&D Overview")
     doc.add_heading("Task summary", level=1)
     add_kv_table(doc, _task_summary_rows(repo, slug), ["field", "value"])
 
     doc.add_heading("Plans", level=1)
-    add_kv_table(doc, repo.list_plans(slug),
+    add_kv_table(doc, repo.list_plans(task_id),
                  ["plan_id", "version", "parent_plan_id", "content_hash", "status", "created_at"])
 
     doc.add_heading("Models", level=1)
-    models = repo.list_models(slug)
+    models = repo.list_models(task_id)
     add_kv_table(doc, [{"model_id": m.model_id, "run_id": m.run_id, "status": m.status,
                         "recommended": m.recommended, "data_version": m.data_version,
                         "weights_ref": m.weights_ref} for m in models],
                  ["model_id", "run_id", "status", "recommended", "data_version", "weights_ref"])
 
     doc.add_heading("Evaluations", level=1)
-    evals = repo.list_evals(slug)
+    evals = repo.list_evals(task_id)
+    metric_names = list(dict.fromkeys([spec.primary_metric.name, *[m.name for m in spec.secondary_metrics]]))
     add_kv_table(doc, [{"eval_id": e.eval_id, "model_id": e.model_id, "protocol": e.protocol_id,
-                        "rmse": e.metrics.get("rmse"), "rmse_low_light": e.metrics.get("rmse_low_light"),
+                        "stage": e.stage, **{m: e.metrics.get(m) for m in metric_names},
                         "passed": e.passed, "synthetic": e.synthetic} for e in evals],
-                 ["eval_id", "model_id", "protocol", "rmse", "rmse_low_light", "passed", "synthetic"])
+                 ["eval_id", "model_id", "protocol", "stage", *metric_names, "passed", "synthetic"])
 
     doc.add_heading("Recent events", level=1)
-    events = repo.read_events(slug, after=0, limit=200)[-40:]
+    events = repo.read_events(task_id, after=0, limit=10000)[-40:]
     add_kv_table(doc, [{"event_seq": e["event_seq"], "kind": e["kind"], "message": e["message"],
                         "created_at": e["created_at"]} for e in events],
                  ["event_seq", "kind", "message", "created_at"])
 
     doc.add_heading("Feedback", level=1)
     add_kv_table(doc, [{"feedback_id": f.feedback_id, "model_id": f.model_id, "scenario": f.scenario,
-                        "actual": f.actual, "reproduced": f.reproduced} for f in repo.list_feedback(slug)],
+                        "actual": f.actual, "reproduced": f.reproduced} for f in repo.list_feedback(task_id)],
                  ["feedback_id", "model_id", "scenario", "actual", "reproduced"])
 
     doc.add_paragraph("Structured events, the asset registry and the database are the source of truth. "
@@ -96,7 +104,8 @@ def export_iteration_report(settings: Settings, repo: Repository, slug: str, ite
             add_kv_table(doc, [{"slice": k, **v} for k, v in packet["slices"].items()])
     doc.add_heading("Models & evaluations", level=1)
     add_kv_table(doc, [{"model_id": m.model_id, "run_id": m.run_id, "status": m.status}
-                       for m in repo.list_models(slug)], ["model_id", "run_id", "status"])
+                       for m in repo.list_models(_task_id(repo, slug))
+                       if m.data_version == f"v{iteration}"], ["model_id", "run_id", "status"])
     out = tp.docs / "iterations" / f"iteration_{iteration}.docx"
     return save(doc, out)
 
@@ -166,11 +175,12 @@ def export_research_docx(settings: Settings, repo: Repository, slug: str, iterat
 
 
 def export_system_status(settings: Settings, repo: Repository) -> str:
+    from ..storage.db import DB_SCHEMA_VERSION
     doc = new_document("Algo-Agent System Status")
     doc.add_heading("Platform", level=1)
     add_kv_table(doc, [{"field": "root", "value": str(settings.root)},
                        {"field": "package_version", "value": __version__},
-                       {"field": "db_schema_version", "value": "3"},
+                       {"field": "db_schema_version", "value": str(DB_SCHEMA_VERSION)},
                        {"field": "workflow_config", "value": str(settings.config_path)}], ["field", "value"])
     doc.add_heading("Milestones", level=1)
     add_kv_table(doc, [

@@ -73,7 +73,7 @@ def _negative_defects() -> Dict[str, Dict[str, Any]]:
     return out
 
 
-def _koniq_rows() -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def _koniq_rows(*, include_eval: bool = True) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Read the real-MOS KonIQ-10k CSV into (dev_rows, eval_rows).
 
     ``dev`` = official *training* + *validation* images (labels visible to the
@@ -89,6 +89,8 @@ def _koniq_rows() -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     ev: List[Dict[str, Any]] = []
     with csv_path.open("r", encoding="utf-8", newline="") as fh:
         for r in csv.DictReader(fh):
+            if not include_eval and r.get("set") not in ("training", "validation"):
+                continue
             name = (r.get("image_name") or "").strip()
             if not name:
                 continue
@@ -102,6 +104,27 @@ def _koniq_rows() -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
             }
             (dev if r.get("set") in ("training", "validation") else ev).append(row)
     return dev, ev
+
+
+def development_source_summary(seed: int = 7) -> Dict[str, Any]:
+    """Preview only development aggregates, without opening holdout labels."""
+    rows = _koniq_rows(include_eval=False)[0] if C.benchmark_source() == "koniq" else load_rows(C.dev_jsonl())
+    if not rows:
+        return {"status": "missing", "scope": "development_only"}
+    split = _split_dev(rows, seed=seed)
+    summaries = {}
+    for name, key in (("train", "train"), ("development_test", "val")):
+        selected = [rows[i] for i in split[key]]
+        scores = [float(r["score"]) for r in selected if r.get("score") is not None]
+        summaries[name] = {
+            "count": len(selected), "defect_support": defect_support(selected),
+            "score_range": [min(scores), max(scores)] if scores else None,
+        }
+    return {"status": "preview_not_frozen", "scope": "development_only",
+            "benchmark": C.benchmark_source(), "seed": seed, "group": "subject",
+            "splits": summaries, "final_labels_inspected": False,
+            "label_semantics": "human MOS; no defect labels" if C.quality_only() else "pseudo-MOS + defects",
+            "note": "Preview uses the default seed; the published data recipe fixes the actual split."}
 
 
 def export_benchmark(tp, version: str, *, seed: int = 7) -> Dict[str, Any]:

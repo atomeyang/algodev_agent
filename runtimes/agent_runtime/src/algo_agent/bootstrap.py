@@ -27,6 +27,18 @@ budget:
   max_cloud_tokens: 400000
   max_no_improve: 4
   max_iterations: 6
+  max_research_steps: 8
+  max_candidates: 3
+  max_data_operations: 24
+  max_added_samples: 10000
+  max_annotation_samples: 1000
+  max_memory_mb: 0
+  max_output_file_mb: 0
+search:
+  backend: disabled
+  sort_by: relevance
+memory:
+  share_lessons: false
 logging:
   exchange_events: true
   emit_event_seq: true
@@ -51,11 +63,23 @@ ALGO_CLOUD_PROVIDER=deepseek
 ALGO_CLOUD_BASE_URL=https://api.deepseek.com/v1
 ALGO_CLOUD_API_KEY=
 ALGO_CLOUD_MODEL=deepseek-flash
+ALGO_RESEARCH_MODEL=
+ALGO_CHAT_MODEL=
+ALGO_INTENT_MODEL=
+ALGO_INTENT_LLM=1
 ALGO_LOCAL_BASE_URL=http://127.0.0.1:8084/v1
 ALGO_LOCAL_MODEL=qwen3.8-27b
 ALGO_LOCAL_API_KEY=
 ALGO_CODEX_BIN=codex
 ALGO_CODEX_ALLOW_REAL=0
+ALGO_CODING_MODEL=
+ALGO_CODING_REASONING_EFFORT=
+ALGO_CODING_TRANSPORT=local
+ALGO_CODING_SSH_HOST=
+ALGO_CODING_SSH_ROOT=
+ALGO_CODING_SSH_PYTHON=python3
+ALGO_CODING_SSH_CODEX=codex
+# Optional: ALGO_SEARCH_BACKEND=arxiv (sends technical queries externally)
 ALGO_SEARCH_URL=
 ALGO_SERVICE_HOST=127.0.0.1
 ALGO_SERVICE_PORT=8765

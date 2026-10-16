@@ -28,6 +28,7 @@ local_largemodel/*/adapters/*
 **/data/raw/
 **/data/releases/
 **/.iqa_cache/
+**/runtime/tmp/
 *_experiment/model_pool/*/weights/
 !shared_assets/**/.gitkeep
 .pytest_cache/

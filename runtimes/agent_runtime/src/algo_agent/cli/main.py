@@ -255,12 +255,32 @@ def demo(
 def chat(
     ctx: typer.Context,
     task: Optional[str] = typer.Option(None, "--task", help="task id to attach to"),
+    auto: bool = typer.Option(False, "--auto-process", help="new tasks do not wait for plan approval"),
 ) -> None:
     """Open the interactive chat REPL."""
     from .chat import run_chat
     c: Ctx = ctx.obj
     client = c.client()
-    raise typer.Exit(run_chat(c.settings, client, task_id=task))
+    raise typer.Exit(run_chat(c.settings, client, task_id=task, auto_process=auto))
+
+
+@app.command("preflight")
+def preflight(ctx: typer.Context, strict: bool = typer.Option(False, "--strict"),
+              probe_coding: bool = typer.Option(False, "--probe-coding",
+                                               help="probe configured SSH worker without model generation")) -> None:
+    """Check configuration, without spending model tokens or changing credentials."""
+    c: Ctx = ctx.obj
+    result = c.client().readiness(probe_coding=probe_coding)
+    c.emit(result, lambda r: render.console.print(r))
+    if strict and result["blockers"]:
+        raise typer.Exit(2)
+
+
+@app.command("memory")
+def memory_view(ctx: typer.Context, task: str = typer.Option(..., "--task")) -> None:
+    """Inspect evidence-linked development lessons."""
+    c: Ctx = ctx.obj
+    c.emit(c.client().memory(task), lambda r: render.console.print(r))
 
 
 # ------------------------------------------------------------------------- #

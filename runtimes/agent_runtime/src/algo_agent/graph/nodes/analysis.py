@@ -53,6 +53,9 @@ def analyze_node(state: TaskState, ctx) -> Dict[str, Any]:
     ctx.repo.append_event(task_id, "stage.analyze",
                           f"failures={len(failures)}", data={"failures": failures, "diagnosis": diag,
                                                              "delta": delta, "packet_id": packet.packet_id})
+    from ...memory import ResearchMemory
+    ResearchMemory(ctx.settings, ctx.repo).record(
+        task_id, plan.plan_id, data_failures=state.get("dataset_problems", []), diagnosis=diag)
     score = best_metrics.get(spec.primary_metric.name)
     previous = state.get("best_score")
     from .experiments import evaluation_fingerprint

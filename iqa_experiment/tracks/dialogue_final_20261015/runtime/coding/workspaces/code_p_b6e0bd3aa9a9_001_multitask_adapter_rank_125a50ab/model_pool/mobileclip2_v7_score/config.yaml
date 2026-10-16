@@ -1,0 +1,5 @@
+{
+  "method": "mobileclip2_v7_score",
+  "impl": "mobileclip2_v7_score.py",
+  "config": {}
+}

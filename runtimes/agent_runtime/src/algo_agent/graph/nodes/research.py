@@ -82,13 +82,6 @@ def research_node(state: TaskState, ctx) -> Dict[str, Any]:
         feedback=feedback, history=history,
     )
     result = ctx.research_agent.run(request)
-    if result.status != "completed" or not result.candidates:
-        from ...policy import TaskHalted
-        reason = "research did not produce an executable plan: " + "; ".join(result.unknowns)
-        ctx.repo.update_state(task_id, phase="stopped", stop_reason=reason)
-        ctx.repo.append_event(task_id, "research.blocked", reason)
-        raise TaskHalted(reason)
-
     research_dir = tp.docs / "research"
     research_dir.mkdir(parents=True, exist_ok=True)
     (research_dir / f"research_iter{iteration}.md").write_text(result.report_markdown, encoding="utf-8")
@@ -105,6 +98,13 @@ def research_node(state: TaskState, ctx) -> Dict[str, Any]:
         "extras": getattr(result, "extras", {}) or {},
     }
     write_json(research_dir / f"research_iter{iteration}.json", payload)
+
+    if result.status != "completed" or not result.candidates:
+        from ...policy import TaskHalted
+        reason = "research did not produce an executable plan: " + "; ".join(result.unknowns)
+        ctx.repo.update_state(task_id, phase="stopped", stop_reason=reason)
+        ctx.repo.append_event(task_id, "research.blocked", reason)
+        raise TaskHalted(reason)
 
     ctx.repo.append_event(task_id, "stage.research",
                           f"research iteration {iteration}: {len(result.candidates)} candidates, "

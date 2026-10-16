@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/mnt/data/yangt/codes/QAA/algo_agent/runtimes/agent_runtime/src/algo_agent/execution/method_worker.py", line 74, in <module>
+    raise SystemExit(main(sys.argv))
+                     ^^^^^^^^^^^^^^
+  File "/mnt/data/yangt/codes/QAA/algo_agent/runtimes/agent_runtime/src/algo_agent/execution/method_worker.py", line 62, in main
+    result = module.run(ctx, job.get("config", {}))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/runs/run_b6e0bd3aa9a9_v1_mobileclip2_v7_score/code/method/method.py", line 9, in run
+    return _impl.run(ctx, config)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/runs/run_b6e0bd3aa9a9_v1_mobileclip2_v7_score/code/plugins/algorithm_plugins/iqa/methods/mobileclip2_v7_score.py", line 34, in run
+    raise FileNotFoundError(f"missing backbone ({pretrained}) or adapter ({ckpt})")
+FileNotFoundError: missing backbone (/mnt/data/yangt/codes/QAA/iqa_agent/models/mobileclip2_s0.pt) or adapter (plugin default (config.adapter_ckpt()))

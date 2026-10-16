@@ -52,6 +52,7 @@ class Worker:
     def drain(self, max_jobs: int = 100, task_id: Optional[str] = None) -> int:
         """Execute currently queued jobs synchronously (offline/demo/test path)."""
         done = 0
+        self.repo.reconcile_jobs()
         for _ in range(max_jobs):
             job = self.repo.lease_job(task_id or self.task_filter, self._owner)
             if not job:
@@ -79,13 +80,18 @@ class Worker:
             if not self.running():
                 for tid in {j.task_id for j in jobs if j is not None}:
                     self.drain(task_id=tid)
+                time.sleep(poll_s)
                 continue
             time.sleep(poll_s)
         return False
 
     def _loop(self) -> None:
         self.repo.reconcile_jobs()
+        reconciled = time.monotonic()
         while not self._stop.is_set():
+            if time.monotonic() - reconciled >= 15:
+                self.repo.reconcile_jobs()
+                reconciled = time.monotonic()
             job = self.repo.lease_job(self.task_filter, self._owner)
             if not job:
                 time.sleep(self.poll_s)
@@ -93,11 +99,21 @@ class Worker:
             self._run(job)
 
     def _run(self, job) -> None:
+        finished = threading.Event()
+        def renew():
+            while not finished.wait(5):
+                if not self.repo.heartbeat_job(job):
+                    break
+        heartbeat = threading.Thread(target=renew, name="job-heartbeat", daemon=True)
+        heartbeat.start()
         try:
             outcome = self.runner.execute_job(job)
         except Exception as exc:  # never kill the worker loop
             outcome = {"status": "failed", "error": repr(exc)}
-            self.repo.update_job(job.job_id, status="failed", result=outcome)
+            self.repo.finish_job(job, "failed", result=outcome)
+        finally:
+            finished.set()
+            heartbeat.join(timeout=6)
         self.completed += 1
         payload = {"job_id": job.job_id, "task_id": job.task_id, **outcome}
         for cb in self._listeners:

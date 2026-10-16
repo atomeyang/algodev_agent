@@ -199,12 +199,10 @@ class Settings:
         return bool(self.env_get("ALGO_LOCAL_BASE_URL"))
 
     def offline(self) -> bool:
-        """True only when neither a cloud credential nor a local endpoint is usable.
+        """Whether all model roles must use offline adapters.
 
-        A configured *local* endpoint now counts as non-offline: the research
-        and conversational units can then call the local model instead of the
-        deterministic template. ``ALGO_OFFLINE=1`` still forces the fully
-        offline path regardless of what is configured, so honesty is preserved.
+        A local endpoint enables auxiliary diagnosis/conversation only; without
+        cloud credentials research still uses the explicit offline template.
         """
         if str(self.env.get("ALGO_OFFLINE", os.environ.get("ALGO_OFFLINE", ""))).lower() in {"1", "true", "yes"}:
             return True

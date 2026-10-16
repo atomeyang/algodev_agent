@@ -1,0 +1,124 @@
+plan_id: p_b6e0bd3aa9a9_001
+version: v1
+dag:
+- schema_version: '1.0'
+  step_id: prepare_assets
+  kind: experiment
+  depends_on: []
+  params: {}
+- schema_version: '1.0'
+  step_id: coding
+  kind: coding
+  depends_on:
+  - prepare_assets
+  params: {}
+- schema_version: '1.0'
+  step_id: run_mobileclip2_v7_score
+  kind: experiment
+  depends_on:
+  - coding
+  params:
+    method: mobileclip2_v7_score
+- schema_version: '1.0'
+  step_id: run_multitask_adapter_rank
+  kind: experiment
+  depends_on:
+  - coding
+  params:
+    method: multitask_adapter_rank
+- schema_version: '1.0'
+  step_id: evaluate
+  kind: evaluation
+  depends_on:
+  - run_mobileclip2_v7_score
+  - run_multitask_adapter_rank
+  params: {}
+- schema_version: '1.0'
+  step_id: analyze
+  kind: analysis
+  depends_on:
+  - evaluate
+  params: {}
+change_scope:
+  schema_version: '1.0'
+  allowed_methods:
+  - mobileclip2_v7_score
+  - multitask_adapter_rank
+  allowed_data_sources:
+  - qaa_iqa_frozen_benchmark
+  - iqa_agent_dev_split
+  - iqa_agent_measure_registry
+  allowed_recipe_changes:
+  - augment
+  - resample
+  - filter
+  - annotate
+  - relabel
+  - extend
+  parameter_space:
+    mobileclip2_v7_score:
+      feature_batch: 32
+      image_size: 256
+      score_ckpt: plugin default (config.adapter_ckpt())
+      defect_head: measurement_rule_zero_rom
+      n_eval_expected: 85
+      seed: 7
+      epochs: 40
+      mlp_max_iter: 40
+    multitask_adapter_rank:
+      epochs: 35
+      early_stop_patience: 8
+      lr: 0.002
+      weight_decay: 0.01
+      batch_size: 64
+      hidden: 256
+      dropout: 0.15
+      image_size: 256
+      feature_cache_tag: mobileclip2s0_256
+      huber_weight: 0.5
+      huber_delta: 0.2
+      rank_weight: 0.3
+      rank_margin: 0.1
+      rank_min_score_gap: 5.0
+      plcc_weight: 0.2
+      bce_focal_gamma: 1.5
+      pos_weight_clip:
+      - 1
+      - 10
+      logit_adjust_tau: 0.5
+      defect_threshold: 0.5
+      tune_thresholds: true
+      calibration: isotonic_on_val
+      val_frac: 0.25
+      selection_metric: 0.5*val_PLCC + 0.5*val_supported_macroF1
+      seeds:
+      - 7
+      export: fp16_state_dict
+      rom_budget_mb: 60.0
+      split: train
+      eval_labels_used_for_tuning: false
+      mlp_max_iter: 40
+  write_paths:
+  - model_pool
+  evaluation_protocol_id: iqa_frozen_v1
+  upload_policy: restricted
+  resource_budget:
+    schema_version: '1.0'
+    max_research_calls: 3
+    max_coding_calls: 8
+    max_fix_attempts: 2
+    max_experiments: 9
+    max_epochs: 40
+    max_wall_clock_s: 2700.0
+    max_cloud_tokens: 400000
+    max_no_improve: 3
+    max_iterations: 3
+    max_research_steps: 12
+    max_candidates: 2
+    max_data_operations: 8
+    max_added_samples: 240
+    max_annotation_samples: 4
+    max_memory_mb: 0
+    max_output_file_mb: 2048
+  max_iterations: 3
+  approval_mode: scoped_auto

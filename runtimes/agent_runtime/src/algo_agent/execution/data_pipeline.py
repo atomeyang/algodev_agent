@@ -24,13 +24,15 @@ from ..schemas import contracts as C
 
 def operation_capabilities(domain: str) -> dict:
     shared = {
-        "resample": {"split": "train", "params": ["count", "seed", "weight"]},
+        "resample": {"split": "train", "params": ["count", "seed", "weight"],
+                     "semantics": "replaces training set with count draws; count charged as added_samples"},
         "extend": {"splits": ["train", "development_test", "final_test"],
                    "source": "registered source_id; test labels must be trusted"},
     }
     if domain == "iqa":
         return {**shared,
-                "resample": {"split": "train", "params": ["count", "seed", "defect", "weight"]},
+                "resample": {"split": "train", "params": ["count", "seed", "defect", "weight"],
+                             "semantics": "replaces training set with count draws; count charged as added_samples"},
                 "augment": {"splits": ["train", "development_test"],
                             "params": {"transform": "hflip", "label_preserving": True, "count": "positive integer"}},
                 "filter": {"split": "train", "params": ["score_min", "score_max"]},

@@ -1,0 +1,35 @@
+{
+  "failures": [
+    {
+      "method": "multitask_adapter_rank",
+      "status": "failed",
+      "issues": [
+        "no implementation changes detected"
+      ],
+      "verifications": [
+        {
+          "schema_version": "1.0",
+          "command": "python -c \"import ast,pathlib; ast.parse(pathlib.Path('model_pool/multitask_adapter_rank/method.py').read_text())\"",
+          "exit_code": 1,
+          "stdout_tail": "",
+          "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/local/lib/python3.12/pathlib.py\", line 1027, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/pathlib.py\", line 1013, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'model_pool/multitask_adapter_rank/method.py'\n"
+        },
+        {
+          "schema_version": "1.0",
+          "command": "python -c \"from algorithm_plugins.common.plugin import load_method; m=load_method('model_pool/multitask_adapter_rank/method.py'); assert callable(m.run); assert callable(m.predict)\"",
+          "exit_code": 1,
+          "stdout_tail": "",
+          "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/mnt/data/yangt/codes/QAA/algo_agent/algorithm_plugins/common/plugin.py\", line 87, in load_method\n    raise FileNotFoundError(f\"method entry not found: {path}\")\nFileNotFoundError: method entry not found: /mnt/data/yangt/codes/QAA/algo_agent/iqa_experiment/tracks/dialogue_final_20261015/runtime/coding/workspaces/code_p_b6e0bd3aa9a9_001_multitask_adapter_rank_125a50ab/model_pool/multitask_adapter_rank/method.py\n"
+        },
+        {
+          "schema_version": "1.0",
+          "command": "entry exists",
+          "exit_code": 1,
+          "stdout_tail": "",
+          "stderr_tail": ""
+        }
+      ]
+    }
+  ],
+  "change_requests": []
+}

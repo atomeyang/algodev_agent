@@ -156,13 +156,14 @@ def validate_reproduction(settings: Settings, repo: Repository, task_id: str, *,
     if secret_hits:
         blockers.append(f"credential material present in package: {secret_hits}")
 
-    if actual_metrics:
+    if actual_metrics is not None:
+        import math
         tol = float(data.get("tolerance", 1e-6))
         for key, want in (data.get("expected_results") or {}).items():
             got = actual_metrics.get(key)
             if got is None:
                 mismatches.append(f"{key}: not measured in the re-run")
-            elif abs(float(got) - float(want)) > tol:
+            elif not math.isfinite(float(got)) or abs(float(got) - float(want)) > tol:
                 mismatches.append(f"{key}: expected {want} got {got} (tol {tol})")
 
     if blockers:
@@ -172,6 +173,9 @@ def validate_reproduction(settings: Settings, repo: Repository, task_id: str, *,
     else:
         status = "validated"
     result = {"status": status, "blockers": blockers, "mismatches": mismatches,
+              "validation_scope": "package_and_supplied_metrics" if actual_metrics is not None else "package_only",
+              "independently_reproduced": False,
+              "note": "No experiment was executed by this validator; supplied metrics are not a replay attestation.",
               "checked": checked, "tolerance": data.get("tolerance"),
               "expected_results": data.get("expected_results")}
     repo.append_event(task_id, "repro.validate", f"reproduction validation: {status}",

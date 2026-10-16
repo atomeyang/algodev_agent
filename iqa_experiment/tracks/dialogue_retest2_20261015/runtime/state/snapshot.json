@@ -1,0 +1,436 @@
+{
+  "task": {
+    "schema_version": "1.0",
+    "task_id": "iqa_dialogue_retest2_20261015",
+    "task_slug": "iqa_dialogue_retest2_20261015",
+    "domain": "iqa",
+    "business": "轻量双输出 IQA 自主研发验证。使用当前本地 IQA pseudo-MOS 基准，输出 0-100 质量分和 blur/over_exp/under_exp/flare/white_balance 五类缺陷。主指标 PLCC >= 0.85，SRCC >= 0.85，defect_macro_f1 >= 0.85，grade_agreement >= 0.90，hardcase_macro_f1 >= 0.85，ROM < 60 MB。自主研究模型结构、训练策略、loss 和数据方案，产生可执行的代码与数据实验，依据开发集结果再研究、改进并迭代，不等待审批。不能通过降低指标、替换测试集、删除困难样本或修改测试真值取得达标。原始样本及历史产物只读，训练集增强和少量本地弱标注可以实验。历史测试集已暴露，不能宣称本次复测是新的独立业务验收。即使某些门槛受标签覆盖限制，仍在预算内测量代码和数据干预对可测指标的影响，最终明确哪些达标、哪些未达标、哪些不可测。历史模型结果不代表理论上限。",
+    "inputs": [
+      "rgb_image_256"
+    ],
+    "outputs": [
+      "quality_score_0_100",
+      "defect_multilabel_5"
+    ],
+    "target_hardware": "mobile",
+    "precision": "fp16",
+    "hard_constraints": [
+      {
+        "schema_version": "1.0",
+        "name": "rom_mb_fp16",
+        "value": 60,
+        "unit": "MB",
+        "measurement_scope": "",
+        "blocking": true
+      },
+      {
+        "schema_version": "1.0",
+        "name": "dual_output",
+        "value": "score+defects",
+        "unit": "",
+        "measurement_scope": "",
+        "blocking": true
+      }
+    ],
+    "primary_metric": {
+      "schema_version": "1.0",
+      "name": "plcc",
+      "direction": "max",
+      "threshold": 0.85,
+      "unit": "",
+      "protocol_id": "",
+      "measured_on": null,
+      "unknown": false,
+      "strict": false
+    },
+    "secondary_metrics": [
+      {
+        "schema_version": "1.0",
+        "name": "srcc",
+        "direction": "max",
+        "threshold": 0.85,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "defect_macro_f1",
+        "direction": "max",
+        "threshold": 0.85,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "grade_agreement",
+        "direction": "max",
+        "threshold": 0.9,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "hardcase_macro_f1",
+        "direction": "max",
+        "threshold": 0.85,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": false
+      },
+      {
+        "schema_version": "1.0",
+        "name": "rom_mb",
+        "direction": "min",
+        "threshold": 60.0,
+        "unit": "",
+        "protocol_id": "",
+        "measured_on": null,
+        "unknown": false,
+        "strict": true
+      }
+    ],
+    "budget": {
+      "schema_version": "1.0",
+      "max_research_calls": 3,
+      "max_coding_calls": 8,
+      "max_fix_attempts": 2,
+      "max_experiments": 9,
+      "max_epochs": 40,
+      "max_wall_clock_s": 2700.0,
+      "max_cloud_tokens": 400000,
+      "max_no_improve": 3,
+      "max_iterations": 3,
+      "max_research_steps": 12,
+      "max_candidates": 2,
+      "max_data_operations": 8,
+      "max_added_samples": 240,
+      "max_annotation_samples": 4,
+      "max_memory_mb": 0,
+      "max_output_file_mb": 2048
+    },
+    "unknowns": [
+      "Historical test benchmark is already exposed; this run is a workflow/replication validation.",
+      "Pseudo-MOS is not independently collected human MOS.",
+      "On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate."
+    ],
+    "demo": false,
+    "synthetic": false,
+    "source": "natural_language",
+    "auto_process": true,
+    "require_live_research": false,
+    "research_queries": [
+      "image quality assessment"
+    ],
+    "methods_hint": [],
+    "data_sources": [],
+    "created_at": "2026-10-15T07:59:14.007492+00:00"
+  },
+  "state": {
+    "schema_version": "1.0",
+    "task_id": "iqa_dialogue_retest2_20261015",
+    "phase": "stopped",
+    "iteration": 0,
+    "state_version": 7,
+    "active_plan_id": "p_711fe4fcb779_001",
+    "pending_approval": null,
+    "best_model_id": null,
+    "stop_reason": "cancelled by user",
+    "paused": false,
+    "budget_used": {
+      "reserved": {
+        "cloud_tokens": 0.0
+      },
+      "used": {
+        "added_samples": 240,
+        "cloud_tokens": 69508,
+        "data_operations": 1,
+        "research_calls": 1
+      }
+    },
+    "updated_at": "2026-10-15T08:05:33.027967+00:00"
+  },
+  "jobs": [],
+  "events": [
+    {
+      "event_seq": 1,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "task.created",
+      "level": "info",
+      "message": "task iqa_dialogue_retest2_20261015 created (slug=iqa_dialogue_retest2_20261015)",
+      "data": {
+        "demo": false,
+        "synthetic": false,
+        "unknowns": [
+          "Historical test benchmark is already exposed; this run is a workflow/replication validation.",
+          "Pseudo-MOS is not independently collected human MOS.",
+          "On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate."
+        ]
+      },
+      "created_at": "2026-10-15T07:59:26.766331+00:00"
+    },
+    {
+      "event_seq": 2,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "feedback.received",
+      "level": "info",
+      "message": "feedback fb_77f8e2461abc queued (severity=medium)",
+      "data": {
+        "model_id": null,
+        "scenario": "improvement"
+      },
+      "created_at": "2026-10-15T07:59:42.920298+00:00"
+    },
+    {
+      "event_seq": 3,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "control.pause",
+      "level": "info",
+      "message": "pause requested; new steps will not start",
+      "data": {},
+      "created_at": "2026-10-15T07:59:43.016264+00:00"
+    },
+    {
+      "event_seq": 4,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "control.resume",
+      "level": "info",
+      "message": "resume requested; new steps may start",
+      "data": {},
+      "created_at": "2026-10-15T07:59:43.132231+00:00"
+    },
+    {
+      "event_seq": 5,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "stage.intake",
+      "level": "info",
+      "message": "requirement parsed; unknowns=3",
+      "data": {
+        "metric": {
+          "direction": "max",
+          "measured_on": null,
+          "name": "plcc",
+          "protocol_id": "",
+          "schema_version": "1.0",
+          "strict": false,
+          "threshold": 0.85,
+          "unit": "",
+          "unknown": false
+        },
+        "unknowns": [
+          "Historical test benchmark is already exposed; this run is a workflow/replication validation.",
+          "Pseudo-MOS is not independently collected human MOS.",
+          "On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate."
+        ],
+        "validation_problems": []
+      },
+      "created_at": "2026-10-15T07:59:49.014333+00:00"
+    },
+    {
+      "event_seq": 6,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "agent.research_design",
+      "level": "info",
+      "message": "research design iteration 1: 2 candidates",
+      "data": {
+        "invocation_id": "inv_816695ff9f",
+        "offline": false,
+        "session_id": "sess_67cebf0772",
+        "status": "completed",
+        "tool_calls": [
+          {
+            "note": "arxiv: 8 results; metadata/abstracts only, not reproduction",
+            "refs": 8,
+            "tool": "search_sources",
+            "used_search_service": true
+          },
+          {
+            "refs": 8,
+            "tool": "build_packet"
+          },
+          {
+            "result": {
+              "releases": [],
+              "source_preview": {
+                "benchmark": "pseudo",
+                "final_labels_inspected": false,
+                "group": "subject",
+                "label_semantics": "pseudo-MOS + defects",
+                "note": "Preview uses the default seed; the published data recipe fixes the actual split.",
+                "scope": "development_only",
+                "seed": 7,
+                "splits": {
+                  "development_test": {
+                    "count": 85,
+                    "defect_support": {
+                      "blur": 18,
+                      "flare": 3,
+                      "over_exp": 9,
+                      "under_exp": 9,
+                      "white_balance": 0
+                    },
+                    "score_range": [
+                      28.0,
+                      95.9
+                    ]
+                  },
+                  "train": {
+                    "count": 325,
+                    "defect_support": {
+                      "blur": 72,
+                      "flare": 7,
+                      "over_exp": 36,
+                      "under_exp": 36,
+                      "white_balance": 0
+                    },
+                    "score_range": [
+                      28.0,
+                      95.9
+                    ]
+                  }
+                },
+                "status": "preview_not_frozen"
+              }
+            },
+            "tool": "inspect_data"
+          },
+          {
+            "result": {
+              "lessons": []
+            },
+            "tool": "recall_lessons"
+          },
+          {
+            "result": {
+              "content": "# -*- coding: utf-8 -*-\n\"\"\"Hierarchical mixture-of-experts score head (the honest PLCC frontier).\n\nWhy this method exists\n----------------------\nThe frozen benchmark's score ground truth is a *severity-quantised* pseudo-MOS\n(``iqa_agent/benchmark.py``): defective images score 66 / 46 / 28 for\nlight/medium/heavy and good images score 88.0-95.9 from a **filename hash**.\nSo predicting the score is really a **4-level ordinal problem** (good, light,\nmedium, heavy) whose top level carries unlearnable, pixel-independent noise, and\nPLCC is a *ranking* statistic over those levels.\n\nTwo facts, both measured on the frozen split (see ``docs/iqa_run_report.md``),\ndrive the design:\n\n1. a single global regressor tops out around PLCC 0.66;\n2. the binding constraint is the **good-vs-defective gate**: perfect routing\n   (``oracle`` gate, diagnostic only) lifts PLCC to ~0.85, while the best real\n   gate has ROC-AUC ~0.85 / accuracy ~0.83-0.89.\n\nSo instead of betting on one model, this head fits three *complementary* views\nand picks their blend by **subject-group cross-validation on dev only**:\n\n* ``global_reg`` -- ExtraTrees + RandomForest regression ensemble on the score;\n* ``cls_expect`` -- a 4-class classifier whose posteriors give\n  ``E[score] = sum_k P(level=k) * level_score`` (the PLCC-optimal decoding of a\n  probabilistic 4-level model);\n* ``moe`` -- the explicit factorisation: a gate ``P(defective|x)``, a coarse\n  degradation-family router (``blur/over_exp/under_exp/flare/none``) trained on\n  dev ``raw_defect`` labels only, and one severity expert per family.\n\nFeatures are the 82-d degradation-aware stats (``features.rich``) plus the 16-d\ncalibrated physical measurements plus two cheap metadata scalars (file size),\nso the deployed artefact stays zero-ROM, CPU-only and fully explainable.  The\ndefect side reuses the zero-ROM calibrated measurement rule, so the method is a\ndrop-in replacement for ``score_ordinal_sft`` on the dual-output contract.\n\n**No eval label is ever read**: the frozen ``eval`` split is used for prediction\nonly.  Family/severity supervision comes exclusively from ``dev.jsonl`` and, for\n``score_ordinal_sft_synth``, from on-the-fly re-degradation (never here).\n\"\"\"\n\nfrom __future__ import annotations\n\nimport hashlib\nimport itertools\nimport json\nimport os\nimport time\nfrom pathlib import Path\nfrom typing import Any, Dict, List, Optional, Tuple\n\nimport numpy as np\n\nfrom . import common, measure_lib\n\nDEFAULTS: Dict[str, Any] = {\n    \"feature_workers\": 10,\n    \"cv_folds\": 4,\n    \"ensemble_seeds\": 3,\n    \"min_family_rows\": 15,\n    \"blend_step\": 0.1,\n    \"use_metadata\": True,\n}\n\nMEAS_KEYS = [\"gray_world_dev\", \"lab_a_mean\", \"lab_b_mean\", \"cast_mag\", \"bright_ratio\",\n             \"largest_blob_ratio\", \"hf_ratio\", \"laplacian_var\", \"tenengrad\", \"mean_lum\",\n             \"over_ratio\", \"p1\", \"p99\", \"std_lum\", \"under_ratio\", \"glare_ratio\"]\n\n# pseudo-MOS level means, estimated from dev at fit time (fallback only)\nLEVEL_SCORES_FALLBACK = {0: 90.0, 1: 66.0, 2: 46.0, 3: 28.0}\n\n\n# --------------------------------------------------------------------------- #\n# targets / families (labels only -- never filename tokens as features)\n# --------------------------------------------------------------------------- #\ndef _level_of(row: Dict[str, Any]) -> int:\n    if row.get(\"good\"):\n        return 0\n    sev = int(row.get(\"severity\") or 0)\n    return 3 if sev == 0 else sev\n\n\ndef _family_of(row: Dict[str, Any]) -> str:\n    \"\"\"Coarse degradation family from the *label* field (dev only).\"\"\"\n    if row.get(\"good\"):\n        return \"good\"\n    defect = row.get(\"raw_defect\")\n    if defect in (\"blur\", \"over_exp\", \"under_exp\", \"flare\"):\n        return defect\n    return \"none\"          # occlusion / noise / haze all carry raw_defect=None\n\n\ndef _level_means(level: np.ndarray, y: np.ndarray) -> Dict[int, float]:\n    out = dict(LEVEL_SCORES_FALLBACK)\n    for lv in (0, 1, 2, 3):\n        sel = level == lv\n        if sel.sum() > 0:\n            out[lv] = float(np.mean(y[sel]))\n    return out\n\n\n# --------------------------------------------------------------------------- #\n# features: 82-d degradation-aware stats + 16-d measurements + metadata\n# --------------------------------------------------------------------------- #\ndef _rich_matrix(paths, cache: Path, workers: int):\n    from .. import features as F\n    key = hashlib.sha1((\"rich82|\" + \"|\".join(paths)).encode()).hexdigest()[:16]\n    return F.extract_many(paths, workers=workers, cache_path=cache / f\"rich_{key}.json\")\n\n\ndef _measure_matrix(paths, cache: Path):\n    cache_file = cache / \"measure_feat.json\"\n    blob: Dict[str, Any] = {}\n    if cache_file.exists():\n        try:\n            blob = json.loads(cache_file.read_text(encoding=\"utf-8\"))\n        except Exception:\n            blob = {}\n    dirty = False\n    rows = []\n    for p in paths:\n        rec = blob.get(p)\n        if rec is None:\n            try:\n                m = measure_lib.measure(p)[\"global\"]\n            except Exception:\n                m = {}\n            rec = [float(m.get(k, 0.0) or 0.0) for k in MEAS_KEYS]\n            blob[p] = rec\n            dirty = True\n        rows.append(rec)\n    if dirty:\n        cache_file.write_text(json.dumps(blob), encoding=\"utf-8\")\n    return np.asarray(rows, dtype=np.float64)\n\n\ndef _meta_matrix(paths) -> np.ndarray:\n    rows = []\n    for p in paths:\n        try:\n            sz = float(os.path.getsize(p))\n        except Exception:\n            sz = 0.0\n        rows.append([sz, float(np.log1p(sz))])\n    return np.asarray(rows, dtype=np.float64)\n\n\n# --------------------------------------------------------------------------- #\n# model pieces",
+              "path": "algorithm_plugins/iqa/methods/score_moe.py"
+            },
+            "tool": "get_code_excerpt"
+          },
+          {
+            "result": {
+              "content": "# -*- coding: utf-8 -*-\n\"\"\"Real trained score head (iqa_adapter_v7) + measurement defect head.\n\nThis is the *reproduction baseline* the iqa_agent engine reported (macro-F1\n0.424, PLCC 0.476 on the frozen eval): the KONIQ-trained MobileCLIP2-S0 adapter\nprovides a real continuous score, while the deployable defect head is the\nzero-ROM calibrated measurement rule. It proves the frozen protocol reproduces\nthe reference numbers inside algo_agent.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport time\nfrom pathlib import Path\nfrom typing import Any, Dict, List\n\nimport numpy as np\n\nfrom . import clip_backbone, common, measure_lib\n\n\ndef run(ctx, config: Dict[str, Any]) -> Dict[str, Any]:\n    import torch\n\n    cfg = dict(config or {})\n    C = common.plugin_config()\n    inputs = common.load_eval_inputs(ctx.data_dir)\n    device = common.resolve_device() or torch.device(\"cpu\")\n    t0 = time.time()\n\n    pretrained = C.pretrained_ckpt()\n    ckpt = Path(cfg.get(\"score_ckpt\") or C.adapter_ckpt())\n    if not Path(pretrained).exists() or not ckpt.exists():\n        raise FileNotFoundError(f\"missing backbone ({pretrained}) or adapter ({ckpt})\")\n\n    adapter, info = clip_backbone.load_trained_adapter(ckpt, pretrained, device)\n    encoder = adapter.model\n\n    cache = Path(common.cache_dir(ctx))\n    paths = [r[\"path\"] for r in inputs]\n    feats = clip_backbone.extract_features(encoder, adapter.preprocess_val, paths, device,\n                                           cache_dir=cache, tag=\"mobileclip2s0_lora_256\",\n                                           batch_size=int(cfg.get(\"feature_batch\", 32)))\n    with torch.no_grad():\n        scores = adapter.head(torch.tensor(feats, dtype=torch.float32, device=device)).cpu().numpy()\n    scores = np.clip(scores * 100.0, 0.0, 100.0)\n\n    thr = C.measure_thresholds()\n    defect_map = measure_lib.measure_defects_cached(paths, thr, C.DEFECTS, cache_dir=cache)\n\n    rows = [common.make_pred(r[\"path\"], float(scores[i]), defect_map[r[\"path\"]])\n            for i, r in enumerate(inputs)]\n    common.write_preds(ctx, rows)\n\n    visual_params = sum(p.numel() for p in adapter.model.visual.parameters())\n    head_params = sum(p.numel() for p in adapter.head.parameters())\n    rom = C.rom_estimate((visual_params + head_params) / 1e6)\n    return {\n        \"method\": \"mobileclip2_v7_score\", \"split\": getattr(ctx, \"split\", \"test\"),\n        \"seed\": int(getattr(ctx, \"seed\", 0) or 0), \"n_eval\": len(rows), \"synthetic\": False,\n        \"device\": str(device), \"rom_params_millions\": round((visual_params + head_params) / 1e6, 3),\n        \"rom\": rom, \"ckpt\": str(ckpt), \"ckpt_info\": info,\n        \"wall_clock_s\": round(time.time() - t0, 1),\n        \"metrics\": {\"n_eval\": len(rows)},\n        \"note\": \"trained MobileCLIP2-S0 adapter score + measurement defect head (reproduction baseline)\",\n    }\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(\"run through algo_agent.execution.method_worker\")",
+              "path": "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py"
+            },
+            "tool": "get_code_excerpt"
+          },
+          {
+            "result": {
+              "content": "# -*- coding: utf-8 -*-\n\"\"\"MobileCLIP2-S0 + multi-task adapter heads (the main plan-A1 candidate).\n\nFrozen MobileCLIP2-S0 visual encoder (11.41 M params, ~22.8 MB fp16) with two\nlightweight trainable heads on the shared 512-d embedding:\n\n* a score head  -> continuous 0-100 quality score (report plan A1);\n* a defect head -> 5 independent logits for blur / over_exp / under_exp /\n  flare / white_balance (multi-label, class-weighted BCE).\n\nTraining uses only the *dev* split (subject-group-disjoint train/val); the\nfrozen eval split is touched once, for prediction, and the headline metrics are\ncomputed by the independent evaluator, never here.\n\nEverything runs on GPU when available; encoder features are cached so the\nself-optimisation loop can re-train heads in seconds.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport time\nfrom pathlib import Path\nfrom typing import Any, Dict, List, Tuple\n\nimport numpy as np\n\nfrom . import clip_backbone, common\n\nDEFAULTS: Dict[str, Any] = {\n    \"epochs\": 60,\n    \"lr\": 2e-3,\n    \"weight_decay\": 1e-2,\n    \"hidden\": 256,\n    \"dropout\": 0.15,\n    \"batch_size\": 64,\n    \"bce_weight\": 1.0,\n    \"l1_weight\": 0.5,\n    \"pos_weight_scale\": 1.0,\n    \"min_pos_weight\": 1.0,\n    \"max_pos_weight\": 20.0,\n    \"defect_threshold\": 0.5,\n    \"tune_thresholds\": True,\n    \"image_size\": 256,\n    \"feature_batch\": 32,\n}\n\n\ndef _pos_weight(d: np.ndarray, scale: float, lo: float, hi: float) -> np.ndarray:\n    pos = d.sum(axis=0).astype(float)\n    neg = d.shape[0] - pos\n    w = np.where(pos > 0, neg / np.maximum(pos, 1.0), 1.0)\n    w = np.clip(w * float(scale), lo, hi)\n    return w.astype(np.float32)\n\n\ndef _macro_f1(y: np.ndarray, p: np.ndarray, classes: List[int]) -> float:\n    f1s = []\n    for c in classes:\n        yt, yp = y[:, c], p[:, c]\n        tp = int(((yt == 1) & (yp == 1)).sum())\n        fp = int(((yt == 0) & (yp == 1)).sum())\n        fn = int(((yt == 1) & (yp == 0)).sum())\n        prec = tp / (tp + fp) if (tp + fp) else 0.0\n        rec = tp / (tp + fn) if (tp + fn) else 0.0\n        f1s.append((2 * prec * rec / (prec + rec)) if (prec + rec) else 0.0)\n    return float(np.mean(f1s)) if f1s else 0.0\n\n\ndef _best_thresholds(y: np.ndarray, prob: np.ndarray, classes: List[int]) -> Dict[int, float]:\n    thresholds: Dict[int, float] = {}\n    grid = np.arange(0.05, 0.96, 0.025)\n    for c in classes:\n        best_t, best_f1 = 0.5, -1.0\n        for t in grid:\n            p = (prob[:, c] >= t).astype(int)\n            yt = y[:, c]\n            tp = int(((yt == 1) & (p == 1)).sum())\n            fp = int(((yt == 0) & (p == 1)).sum())\n            fn = int(((yt == 1) & (p == 0)).sum())\n            prec = tp / (tp + fp) if (tp + fp) else 0.0\n            rec = tp / (tp + fn) if (tp + fn) else 0.0\n            f1 = (2 * prec * rec / (prec + rec)) if (prec + rec) else 0.0\n            if f1 > best_f1:\n                best_f1, best_t = f1, float(t)\n        thresholds[c] = best_t\n    return thresholds\n\n\ndef _plcc(a: np.ndarray, b: np.ndarray) -> float:\n    if len(a) < 3 or float(np.std(a)) == 0 or float(np.std(b)) == 0:\n        return 0.0\n    return float(np.corrcoef(a, b)[0, 1])\n\n\ndef run(ctx, config: Dict[str, Any]) -> Dict[str, Any]:\n    import torch\n    import torch.nn as nn\n\n    cfg = {**DEFAULTS, **(config or {})}\n    C = common.plugin_config()\n    dev = common.load_dev(ctx.data_dir)\n    inputs = common.load_eval_inputs(ctx.data_dir)\n    split = common.load_dev_split(ctx.data_dir)\n    device = common.resolve_device() or torch.device(\"cpu\")\n    cache = Path(common.cache_dir(ctx))\n    t_start = time.time()\n\n    pretrained = C.pretrained_ckpt()\n    if not Path(pretrained).exists():\n        raise FileNotFoundError(f\"MobileCLIP2-S0 pretrained weights missing: {pretrained}\")\n\n    dev_paths = [r[\"path\"] for r in dev]\n    eval_paths = [r[\"path\"] for r in inputs]\n\n    encoder, preprocess = clip_backbone.build_encoder(pretrained, int(cfg[\"image_size\"]))\n    encoder = encoder.to(device)\n    X_dev = clip_backbone.extract_features(encoder, preprocess, dev_paths, device,\n                                           cache_dir=cache, tag=\"mobileclip2s0_256\",\n                                           batch_size=int(cfg[\"feature_batch\"]))\n    X_eval = clip_backbone.extract_features(encoder, preprocess, eval_paths, device,\n                                            cache_dir=cache, tag=\"mobileclip2s0_256\",\n                                            batch_size=int(cfg[\"feature_batch\"]))\n\n    n = len(dev)\n    tr_idx = np.asarray(split.get(\"train\") or list(range(n)), dtype=int)\n    va_idx = np.asarray(split.get(\"val\") or list(range(n)), dtype=int)\n    dim = X_dev.shape[1]\n\n    y_score = np.asarray([float(r.get(\"score\", 0.0)) for r in dev], dtype=np.float32)\n    y_def = np.asarray([common.defect_vector(r, C.DEFECTS) for r in dev], dtype=np.float32)\n    y_scaled = (y_score - 50.0) / 25.0\n    classes = [i for i, d in enumerate(C.DEFECTS) if int(y_def[:, i].sum()) > 0]\n\n    mu, sd = X_dev[tr_idx].mean(axis=0, keepdims=True), X_dev[tr_idx].std(axis=0, keepdims=True) + 1e-6\n    Xt = torch.tensor((X_dev - mu) / sd, dtype=torch.float32, device=device)\n    Xe = torch.tensor((X_eval - mu) / sd, dtype=torch.float32, device=device)\n    Yt = torch.tensor(y_scaled, dtype=torch.float32, device=device)\n    Dt = torch.tensor(y_def, dtype=torch.float32, device=device)\n    tr = torch.tensor(tr_idx, dtype=torch.long, device=device)\n    va = torch.tensor(va_idx, dtype=torch.long, device=device)\n\n    class MultiTaskHead(nn.Module):\n        def __init__(self, in_dim: int, hidden: int, dropout: float, n_def: int):\n            super().__init__()\n            self.trunk = nn.Sequential(\n                nn.Linear(in_dim, hidden), nn.LayerNorm(hidden), nn.GELU(), nn.Dropout(dropout))\n            self.score = nn.Linear(hidden, 1)\n            self.defect = nn.Linear(hidden, n_def)\n",
+              "path": "algorithm_plugins/iqa/methods/multitask_adapter.py"
+            },
+            "tool": "get_code_excerpt"
+          },
+          {
+            "result": {
+              "content": "# -*- coding: utf-8 -*-\n\"\"\"Pure-numpy IQA acceptance metrics (frozen protocol code).\n\nThis mirrors ``iqa_agent/tools/iqa_model.evaluate`` bit-for-bit on the shared\nkeys (per-defect F1 / defect macro-F1 / hardcase macro-F1 / PLCC / SRCC) so the\nagent's evaluator agrees with the reference harness, and adds the two things the\nagent loop needs:\n\n* ``grade_agreement`` -- the 分档一致率 required by the report;\n* ``class_support`` / ``defect_macro_f1_cov`` -- an explicit, honest account of\n  which defect classes are actually measurable on the frozen eval split.\n\nNo scipy/sklearn dependency: pearson/spearman are implemented directly so the\nevaluator stays reproducible and offline.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom typing import Any, Dict, Iterable, List, Optional, Sequence\n\nfrom .config import (\n    DEFECTS,\n    DEFECT_MACROF1_FLOOR,\n    GRADE_AGREEMENT_FLOOR,\n    GRADE_BINS,\n    HARDCASE_F1_FLOOR,\n    MIN_CLASS_SUPPORT,\n    SCORE_PLCC_FLOOR,\n    SCORE_SRCC_FLOOR,\n    rom_estimate as _rom_estimate,\n)\n\ntry:  # numpy is a hard dependency of the platform\n    import numpy as np\nexcept Exception:  # pragma: no cover\n    np = None  # type: ignore\n\n\n# --------------------------------------------------------------------------- #\n# statistics (numpy-only pearson / spearman)\n# --------------------------------------------------------------------------- #\ndef rankdata(values: Sequence[float]) -> List[float]:\n    \"\"\"Average-rank transform (ties share the mean rank), 1-based.\"\"\"\n    a = [float(v) for v in values]\n    n = len(a)\n    order = sorted(range(n), key=lambda i: a[i])\n    ranks = [0.0] * n\n    i = 0\n    while i < n:\n        j = i\n        while j + 1 < n and a[order[j + 1]] == a[order[i]]:\n            j += 1\n        avg = (i + 1 + j + 1) / 2.0\n        for k in range(i, j + 1):\n            ranks[order[k]] = avg\n        i = j + 1\n    return ranks\n\n\ndef pearson(x: Sequence[float], y: Sequence[float]) -> float:\n    n = min(len(x), len(y))\n    if n < 2:\n        return 0.0\n    xs = [float(v) for v in x[:n]]\n    ys = [float(v) for v in y[:n]]\n    mx = sum(xs) / n\n    my = sum(ys) / n\n    dx = [v - mx for v in xs]\n    dy = [v - my for v in ys]\n    num = sum(a * b for a, b in zip(dx, dy))\n    den = math.sqrt(sum(a * a for a in dx) * sum(b * b for b in dy))\n    if den <= 0:\n        return 0.0\n    return num / den\n\n\ndef spearman(x: Sequence[float], y: Sequence[float]) -> float:\n    return pearson(rankdata(x), rankdata(y))\n\n\n# --------------------------------------------------------------------------- #\n# helpers\n# --------------------------------------------------------------------------- #\ndef _index_preds(preds: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:\n    \"\"\"Index predictions by absolute path, with an image-name fallback.\"\"\"\n    out: Dict[str, Dict[str, Any]] = {}\n    for p in preds or []:\n        if not isinstance(p, dict):\n            continue\n        for key in (\"path\", \"image\"):\n            v = p.get(key)\n            if v:\n                out.setdefault(str(v), p)\n                out.setdefault(str(v).split(\"/\")[-1], p)\n    return out\n\n\ndef _present(row: Dict[str, Any], defect: str) -> int:\n    d = (row.get(\"defects\") or {}).get(defect)\n    if isinstance(d, dict):\n        return int(bool(d.get(\"present\", 0)))\n    return int(bool(d)) if d is not None else 0\n\n\ndef _f1(tp: int, fp: int, fn: int) -> float:\n    prec = tp / (tp + fp) if (tp + fp) else 0.0\n    rec = tp / (tp + fn) if (tp + fn) else 0.0\n    return (2 * prec * rec / (prec + rec)) if (prec + rec) else 0.0\n\n\ndef grade_of(score: Optional[float]) -> Optional[str]:\n    if score is None:\n        return None\n    for lo, name in GRADE_BINS:\n        if float(score) >= lo:\n            return name\n    return GRADE_BINS[-1][1]\n\n\n# --------------------------------------------------------------------------- #\n# headline evaluation\n# --------------------------------------------------------------------------- #\ndef evaluate_predictions(\n    labeled: Sequence[Dict[str, Any]],\n    preds: Sequence[Dict[str, Any]],\n    *,\n    defects: Sequence[str] = tuple(DEFECTS),\n    min_support: int = MIN_CLASS_SUPPORT,\n    floors: Optional[Dict[str, float]] = None,\n    quality_only: bool = False,\n) -> Dict[str, Any]:\n    \"\"\"Compute the full IQA acceptance report from stored predictions.\n\n    ``quality_only=True`` is the real-MOS track (e.g. KonIQ-10k): the benchmark\n    ships scores only, no defect annotations, so the defect Macro-F1 / hardcase\n    gates are not applicable and the acceptance decision rests on the\n    score-quality gates (PLCC / SRCC / grade agreement).\n\n    ``labeled`` rows need ``path`` + per-defect ``{present: 0/1}`` + optional\n    ``score`` / ``hardcase``.  ``preds`` rows need ``path`` + per-defect\n    ``{present: 0/1}`` + optional ``score``.\n    \"\"\"\n    by = _index_preds(preds)\n    defects = list(defects)\n    tp = {d: 0 for d in defects}\n    fp = {d: 0 for d in defects}\n    fn = {d: 0 for d in defects}\n    gt_pos = {d: 0 for d in defects}\n    hc_tp = {d: 0 for d in defects}",
+              "path": "algorithm_plugins/iqa/metrics.py"
+            },
+            "tool": "get_code_excerpt"
+          },
+          {
+            "result": {
+              "content": "    hardcase_macro = sum(hardcase.values()) / len(defects) if defects else 0.0\n    hardcase_macro_cov = (sum(hardcase[d] for d in hc_covered) / len(hc_covered)) if hc_covered else 0.0\n\n    if len(ys) > 2 and _std(ys) > 0 and _std(ps) > 0:\n        plcc = pearson(ys, ps)\n        srcc = spearman(ys, ps)\n    else:\n        plcc = srcc = 0.0\n    grade_agreement = (g_agree / g_total) if g_total else 0.0\n\n    f = dict(floors or {})\n    plcc_floor = float(f.get(\"plcc\", SCORE_PLCC_FLOOR))\n    srcc_floor = float(f.get(\"srcc\", SCORE_SRCC_FLOOR))\n    macro_floor = float(f.get(\"defect_macro_f1\", DEFECT_MACROF1_FLOOR))\n    hc_floor = float(f.get(\"hardcase_macro_f1\", HARDCASE_F1_FLOOR))\n    grade_floor = float(f.get(\"grade_agreement\", GRADE_AGREEMENT_FLOOR))\n\n    gates = {\n        \"plcc_ok\": plcc >= plcc_floor,\n        \"srcc_ok\": srcc >= srcc_floor,\n        \"defect_ok\": macro_all >= macro_floor,\n        \"defect_ok_covered\": macro_cov >= macro_floor,\n        \"hardcase_ok\": hardcase_macro_cov >= hc_floor,\n        \"grade_ok\": grade_agreement >= grade_floor,\n    }\n    if quality_only:\n        # no defect annotations ship with a MOS-only benchmark -> those gates\n        # are inapplicable rather than failed; gate on the score metrics only.\n        gates = {\"plcc_ok\": gates[\"plcc_ok\"], \"srcc_ok\": gates[\"srcc_ok\"],\n                 \"grade_ok\": gates[\"grade_ok\"]}\n    report: Dict[str, Any] = {\n        \"per_defect_f1\": {d: round(v, 4) for d, v in per_defect.items()},\n        \"per_defect_precision\": {d: round(v, 4) for d, v in precision.items()},\n        \"per_defect_recall\": {d: round(v, 4) for d, v in recall.items()},\n        \"class_support\": {d: int(gt_pos[d]) for d in defects},\n        \"covered_defects\": covered,\n        \"defect_macro_f1\": round(macro_all, 4),\n        \"defect_macro_f1_cov\": round(macro_cov, 4),\n        \"hardcase_macro_f1\": round(hardcase_macro, 4),\n        \"hardcase_macro_f1_cov\": round(hardcase_macro_cov, 4),\n        \"plcc\": round(plcc, 4),\n        \"srcc\": round(srcc, 4),\n        \"grade_agreement\": round(grade_agreement, 4),\n        \"n_labeled\": len(labeled or []),\n        \"n_matched\": matched,\n        \"n_scored\": len(ys),\n        \"gates\": gates,\n        \"floors\": {\"plcc\": plcc_floor, \"srcc\": srcc_floor,\n                   \"defect_macro_f1\": macro_floor, \"hardcase_macro_f1\": hc_floor,\n                   \"grade_agreement\": grade_floor},\n        \"quality_only\": bool(quality_only),\n        \"coverage_note\": (\"real-MOS benchmark ships no defect annotations; defect Macro-F1 \"\n                          \"and hardcase gates are not applicable\"\n                          if quality_only else _coverage_note(gt_pos, covered, defects, min_support)),\n        \"pass\": (bool(gates[\"plcc_ok\"] and gates[\"srcc_ok\"]) if quality_only\n                 else bool(gates[\"plcc_ok\"] and gates[\"defect_ok\"] and gates[\"hardcase_ok\"])),\n    }\n    if len(ys) <= 2 or _std(ys) <= 0 or _std(ps) <= 0:\n        report[\"score_note\"] = \"degenerate prediction/GT variance; PLCC set to 0\"\n    return report\n\n\ndef _std(values: Sequence[float]) -> float:\n    if np is not None:\n        return float(np.std(values)) if len(values) else 0.0\n    n = len(values)\n    if n == 0:\n        return 0.0\n    m = sum(values) / n\n    return math.sqrt(sum((v - m) ** 2 for v in values) / n)\n\n\ndef _coverage_note(gt_pos: Dict[str, int], covered: List[str], defects: Sequence[str],\n                   min_support: int) -> str:\n    missing = [d for d in defects if d not in covered]\n    if not missing:\n        return \"all defect classes have usable support on the frozen eval split\"\n    return (f\"classes with < {min_support} GT positives are not measurable on this frozen \"\n            f\"split: {missing} (their F1 is scored 0 by convention, which caps the all-class \"\n            f\"macro-F1 at {(len(covered) / len(defects)):.2f} even at perfect F1 elsewhere)\")\n\n\n# --------------------------------------------------------------------------- #\n# flatten to EvalResult.metrics (Dict[str, float])\n# --------------------------------------------------------------------------- #\ndef flatten_report(report: Dict[str, Any]) -> Dict[str, float]:\n    flat: Dict[str, float] = {}\n    for k in (\"defect_macro_f1\", \"defect_macro_f1_cov\", \"hardcase_macro_f1\",\n              \"hardcase_macro_f1_cov\", \"plcc\", \"srcc\", \"grade_agreement\",\n              \"n_matched\", \"n_scored\", \"n_labeled\"):\n        v = report.get(k)\n        if v is not None:\n            flat[k] = float(v)\n    for d, v in (report.get(\"per_defect_f1\") or {}).items():\n        flat[f\"f1_{d}\"] = float(v)\n        flat[f\"support_{d}\"] = float((report.get(\"class_support\") or {}).get(d, 0))\n    return flat\n\n\ndef slices_from_report(report: Dict[str, Any]) -> Dict[str, Dict[str, float]]:\n    slices: Dict[str, Dict[str, float]] = {}\n    for d in (report.get(\"per_defect_f1\") or {}):\n        slices[d] = {\n            \"f1\": float(report[\"per_defect_f1\"][d]),\n            \"precision\": float((report.get(\"per_defect_precision\") or {}).get(d, 0.0)),\n            \"recall\": float((report.get(\"per_defect_recall\") or {}).get(d, 0.0)),\n            \"gt_pos\": float((report.get(\"class_support\") or {}).get(d, 0)),\n        }\n    return slices\n\n\nrom_estimate = _rom_estimate\n\n__all__ = [\n    \"evaluate_predictions\", \"flatten_report\", \"slices_from_report\", \"grade_of\",\n    \"pearson\", \"spearman\", \"rankdata\", \"rom_estimate\",\n]",
+              "path": "algorithm_plugins/iqa/metrics.py"
+            },
+            "tool": "get_code_excerpt"
+          },
+          {
+            "result": {
+              "content": "# -*- coding: utf-8 -*-\n\"\"\"IQA domain configuration for the algo_agent business plugin.\n\nSingle source of truth for the light dual-output IQA task: the defect taxonomy,\nthe acceptance floors, the ROM budget and the resolution of the real local\nassets (frozen benchmark, pretrained MobileCLIP2-S0 / trained adapter).\n\nThe parent workspace (``.../QAA``) holds the real IQA material produced by the\n``iqa_agent`` research engine.  Everything resolves local-first with an env\noverride (``QAA_ROOT``) so the plugin also runs when the workspace is moved.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom pathlib import Path\nfrom typing import Any, Dict, List\n\n# ---- defect taxonomy (from the IQA requirement report) --------------------\nDEFECTS: List[str] = [\"blur\", \"over_exp\", \"under_exp\", \"flare\", \"white_balance\"]\nDEFECT_ZH: Dict[str, str] = {\n    \"blur\": \"模糊\", \"over_exp\": \"过曝\", \"under_exp\": \"欠曝\",\n    \"flare\": \"炫光\", \"white_balance\": \"白平衡\",\n}\nSEVERITY: Dict[int, str] = {0: \"none\", 1: \"light\", 2: \"medium\", 3: \"heavy\"}\nWB_DIRECTIONS: List[str] = [\"cool\", \"warm\", \"green\", \"magenta\"]\n\n# ---- acceptance floors (report ch.4 / ch.10) ------------------------------\nROM_BUDGET_MB: float = float(os.environ.get(\"ROM_BUDGET_MB\", 60.0))\nSCORE_PLCC_FLOOR: float = 0.90\nSCORE_SRCC_FLOOR: float = 0.90\nDEFECT_MACROF1_FLOOR: float = 0.85\nHARDCASE_F1_FLOOR: float = 0.85\nGRADE_AGREEMENT_FLOOR: float = 0.90\nDEPLOY_PARAMS_MILLIONS: float = float(os.environ.get(\"DEPLOY_PARAMS_MILLIONS\", 11.46))\n\n# ---- real-MOS (KonIQ-10k) track floors ------------------------------------\n# The requirement report's PLCC/SRCC target is defined against *real* human MOS\n# (the trained adapter reproduced KonIQ val PLCC 0.909 / test 0.818 there).  On\n# that quality-only track the defect F1 / hardcase / grade gates do not apply\n# (KonIQ ships no defect annotations), so the acceptance floors are the two\n# rank-correlation metrics the user asked for.\nQUALITY_PLCC_FLOOR: float = float(os.environ.get(\"IQA_QUALITY_PLCC_FLOOR\", 0.85))\nQUALITY_SRCC_FLOOR: float = float(os.environ.get(\"IQA_QUALITY_SRCC_FLOOR\", 0.85))\n\n# A defect class needs at least this many ground-truth positives on the frozen\n# eval split to be *measurable*; below it the class F1 is undefined (the\n# convention below scores 0) and the all-class macro is structurally capped.\nMIN_CLASS_SUPPORT: int = 5\n\n# score -> grade bucket for the 分档一致率 (grade agreement) metric\nGRADE_BINS = [(85.0, \"excellent\"), (70.0, \"good\"), (50.0, \"fair\"), (0.0, \"poor\")]\n\n# ---- workspace / asset resolution -----------------------------------------\nPLUGIN_DIR = Path(__file__).resolve().parent\nREPO_ROOT = PLUGIN_DIR.parent.parent            # .../algo_agent\n_WORKSPACE_DEFAULT = REPO_ROOT.parent           # .../QAA\n\n\ndef qaa_root() -> Path:\n    \"\"\"Parent workspace that holds the real IQA assets (env-overridable).\"\"\"\n    return Path(os.environ.get(\"QAA_ROOT\", str(_WORKSPACE_DEFAULT)))\n\n\ndef iqa_agent_dir() -> Path:\n    return qaa_root() / \"iqa_agent\"\n\n\ndef benchmark_dir() -> Path:\n    return iqa_agent_dir() / \"_work\" / \"benchmark\"\n\n\ndef registry_dir() -> Path:\n    return iqa_agent_dir() / \"_work\" / \"registry\"\n\n\ndef dev_jsonl() -> Path:\n    return benchmark_dir() / \"dev.jsonl\"\n\n\ndef eval_jsonl() -> Path:\n    return benchmark_dir() / \"eval.jsonl\"\n\n\ndef measure_thresholds_path() -> Path:\n    return registry_dir() / \"measure_thresholds.json\"\n\n\ndef baseline_report_path() -> Path:\n    return registry_dir() / \"baseline.json\"\n\n\ndef _first_existing(*candidates: Path) -> Path:\n    for c in candidates:\n        if Path(c).exists():\n            return Path(c)\n    return Path(candidates[0])\n\n\ndef pretrained_ckpt() -> Path:\n    \"\"\"MobileCLIP2-S0 open_clip pretrained weights (encoder backbone).\"\"\"\n    return _first_existing(\n        iqa_agent_dir() / \"models\" / \"mobileclip2_s0.pt\",\n        qaa_root() / \"chuanyin_mobileclip2_final\" / \"runs\" / \"mobileclip2_s0.pt\",\n    )\n\n\ndef adapter_ckpt() -> Path:\n    \"\"\"Trained single-task IQA adapter (KONIQ-trained score head).\"\"\"\n    return _first_existing(\n        iqa_agent_dir() / \"models\" / \"iqa_adapter_v7\" / \"best.pt\",\n        qaa_root() / \"chuanyin_mobileclip2_final\" / \"runs\" / \"iqa_adapter_v7\" / \"best.pt\",\n    )\n\n\n# Calibrated measurement thresholds (F1-maximising on dev). Shipping the values\n# here keeps the plugin runnable even when the parent workspace is absent.\nDEFAULT_MEASURE_THRESHOLDS: Dict[str, Dict[str, Any]] = {\n    \"blur\": {\"feature\": \"laplacian_var\", \"direction\": \"lt\", \"threshold\": 492.852},\n    \"over_exp\": {\"feature\": \"over_ratio\", \"direction\": \"gt\", \"threshold\": 0.04857},\n    \"under_exp\": {\"feature\": \"mean_lum\", \"direction\": \"lt\", \"threshold\": 63.398},\n    \"flare\": {\"feature\": \"largest_blob_ratio\", \"direction\": \"gt\", \"threshold\": 0.193904},\n    \"white_balance\": {\"feature\": \"cast_mag\", \"direction\": \"gt\", \"threshold\": 0.5479},\n}\n\n\ndef measure_thresholds() -> Dict[str, Dict[str, Any]]:\n    thr = {k: dict(v) for k, v in DEFAULT_MEASURE_THRESHOLDS.items()}\n    path = measure_thresholds_path()\n    try:\n        import json\n        cal = json.loads(path.read_text(encoding=\"utf-8\"))\n        for d, v in cal.items():\n            if d in thr and isinstance(v, dict) and \"threshold\" in v:\n                thr[d] = {\"feature\": v.get(\"feature\", thr[d][\"feature\"]),\n                          \"direction\": v.get(\"direction\", thr[d][\"direction\"]),\n                          \"threshold\": float(v[\"threshold\"])}\n    except Exception:\n        pass\n    return thr\n\n\ndef rom_estimate(params_millions: float, budget_mb: float | None = None) -> Dict[str, Any]:\n    \"\"\"fp16 ROM estimate identical to iqa_agent.tools.budget.check.\"\"\"\n    budget = ROM_BUDGET_MB if budget_mb is None else budget_mb\n    mb = float(params_millions) * 2.0\n    return {\"ok\": bool(mb < budget), \"rom_mb\": round(mb, 2), \"budget_mb\": budget,\n            \"headroom_mb\": round(budget - mb, 2), \"basis\": \"params_fp16_estimate\"}\n\n",
+              "path": "algorithm_plugins/iqa/config.py"
+            },
+            "tool": "get_code_excerpt"
+          }
+        ]
+      },
+      "created_at": "2026-10-15T08:01:17.928258+00:00"
+    },
+    {
+      "event_seq": 7,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "stage.research",
+      "level": "info",
+      "message": "research iteration 1: 2 candidates, status=completed",
+      "data": {
+        "candidates": [
+          "mobileclip2_v7_score",
+          "multitask_adapter"
+        ],
+        "offline": false,
+        "unknowns": [
+          "white_balance 是否在本地数据中根本不存在，或只是未被标注；本轮最多用 4 张弱标注初探，无法判定。",
+          "PLCC/SRCC 0.85 在冻结 split 上是否可达：现有文档只给出 ≈0.85 的 oracle 门控诊断值，本轮需实测确认。",
+          "历史测试集已暴露，本次复测不能算新的独立业务验收。",
+          "on-device 时延、打包 ROM 未测，ROM 仅为 fp16 参数估算。",
+          "伪 MOS 非独立采集的人工 MOS，结论不能外推到真实主观质量。",
+          "参考论文（ev_*）均为摘要级线索，未复现，不能作为效果证据。",
+          "white_balance unmeasurable on the frozen eval (0 positives)",
+          "on-device latency not measured"
+        ]
+      },
+      "created_at": "2026-10-15T08:01:18.192138+00:00"
+    },
+    {
+      "event_seq": 8,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "stage.design_plan",
+      "level": "info",
+      "message": "plan p_711fe4fcb779_001 (v1) proposed; hash=e781cc1f3a9e",
+      "data": {
+        "candidates": [
+          "mobileclip2_v7_score",
+          "multitask_adapter"
+        ],
+        "plan_hash": "e781cc1f3a9e2dcb74705e791c32dd4c9f5446a7615a843720898e5598b9bd01",
+        "plan_id": "p_711fe4fcb779_001"
+      },
+      "created_at": "2026-10-15T08:01:18.672983+00:00"
+    },
+    {
+      "event_seq": 9,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "stage.approval_gate",
+      "level": "info",
+      "message": "plan p_711fe4fcb779_001 approved (hash e781cc1f3a9e)",
+      "data": {
+        "approval_id": "appr_p_711fe4fcb779_001",
+        "auto_process": true,
+        "mode": "scoped_auto"
+      },
+      "created_at": "2026-10-15T08:01:18.681212+00:00"
+    },
+    {
+      "event_seq": 10,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "control.cancel",
+      "level": "info",
+      "message": "cancel requested for 0 job(s)",
+      "data": {
+        "job_ids": []
+      },
+      "created_at": "2026-10-15T08:05:32.622546+00:00"
+    },
+    {
+      "event_seq": 11,
+      "task_id": "iqa_dialogue_retest2_20261015",
+      "kind": "task.halted",
+      "level": "warning",
+      "message": "task is stopped",
+      "data": {},
+      "created_at": "2026-10-15T08:05:32.811757+00:00"
+    }
+  ],
+  "control_state_dir": "/root/.algo_agent/validations/iqa_dialogue_retest2_20261015",
+  "note": "audit snapshot, not a replacement for the live scheduler/checkpoint database"
+}

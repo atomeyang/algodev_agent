@@ -52,6 +52,8 @@ class Budget(Contract):
     max_data_operations: int = Field(default=24, ge=0)
     max_added_samples: int = Field(default=10000, ge=0)
     max_annotation_samples: int = Field(default=1000, ge=0)
+    max_memory_mb: int = Field(default=0, ge=0)
+    max_output_file_mb: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def nonnegative_limits(self):
@@ -90,6 +92,7 @@ class MetricTarget(Contract):
     protocol_id: str = ""
     measured_on: Optional[str] = None
     unknown: bool = False
+    strict: bool = False
 
     @model_validator(mode="after")
     def finite_threshold(self):
@@ -104,6 +107,8 @@ class MetricTarget(Contract):
     def meets(self, value: float) -> Optional[bool]:
         if self.threshold is None:
             return None
+        if self.strict:
+            return value < self.threshold if self.direction == "min" else value > self.threshold
         return value <= self.threshold if self.direction == "min" else value >= self.threshold
 
 
@@ -134,6 +139,8 @@ class TaskSpec(Contract):
     synthetic: bool = False
     source: str = "natural_language"
     auto_process: bool = False
+    require_live_research: bool = False
+    research_queries: List[str] = Field(default_factory=list, max_length=4)
     methods_hint: List[str] = Field(default_factory=list)
     data_sources: List[DataSource] = Field(default_factory=list)
     created_at: str = Field(default_factory=utcnow)
@@ -572,6 +579,7 @@ class JobRecord(Contract):
     lease_owner: Optional[str] = None
     attempts: int = 0
     pid: Optional[int] = None
+    pid_start: Optional[str] = None
     heartbeat_at: Optional[str] = None
     created_at: str = Field(default_factory=utcnow)
     updated_at: str = Field(default_factory=utcnow)

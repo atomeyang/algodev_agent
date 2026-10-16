@@ -1,0 +1,21 @@
+{
+  "plan_id": "p_b6e0bd3aa9a9_001",
+  "operation": {
+    "schema_version": "1.0",
+    "operation_id": "annotate_rare_defect_probe",
+    "kind": "annotate",
+    "split": "train",
+    "hypothesis": "A local VLM with a fixed defect JSON rubric and min_confidence 0.7 can surface at least one white_balance/flare positive in the existing train pool; because only 4 samples are permitted, this cannot make white_balance measurable against MIN_CLASS_SUPPORT=5 - the only valid outcome is an agreement/calibration probe to decide whether a larger targeted weak-label batch is worth requesting later. Labels are weak only and never treated as ground truth.",
+    "source_id": "",
+    "params": {
+      "labels_are_weak": true,
+      "limit": 4,
+      "min_confidence": 0.7,
+      "rubric": "fixed defect JSON: {blur,over_exp,under_exp,flare,white_balance} each {present:0|1, severity:0-3, direction:cool|warm|green|magenta for white_balance}",
+      "seed": 7,
+      "usage": "train-only auxiliary supervision; never used as test truth"
+    }
+  },
+  "prompt_version": "iqa-prelabel-v1",
+  "prompt": "你是图像质量标注员，只做判断、不解释。对给定图片判断下列五类缺陷是否存在，并给出严重度：blur(模糊)、over_exp(过曝)、under_exp(欠曝)、flare(炫光/光晕)、white_balance(白平衡异常，含 cool 偏冷/warm 偏暖/green 偏绿/magenta 偏品红)。\nseverity：0=无、1=轻、2=中、3=重；present 与 severity>0 必须一致。\n严格只输出一行 JSON，不要 markdown 代码块，不要多余文字：\n{\"defects\":{\"blur\":{\"present\":0,\"severity\":0},\"over_exp\":{\"present\":0,\"severity\":0},\"under_exp\":{\"present\":0,\"severity\":0},\"flare\":{\"present\":0,\"severity\":0},\"white_balance\":{\"present\":0,\"severity\":0,\"direction\":\"none\"}},\"quality_score_0_100\":0,\"confidence_0_1\":0.0}"
+}

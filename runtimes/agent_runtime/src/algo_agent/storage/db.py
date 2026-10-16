@@ -12,7 +12,7 @@ import threading
 from pathlib import Path
 from typing import Iterable, Tuple
 
-DB_SCHEMA_VERSION = 3
+DB_SCHEMA_VERSION = 4
 
 _INIT_SQL = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
@@ -77,6 +77,19 @@ CREATE TABLE IF NOT EXISTS ledger (
 CREATE TABLE IF NOT EXISTS change_requests (
     cr_id TEXT PRIMARY KEY, task_id TEXT, plan_id TEXT, invocation_id TEXT,
     spec_json TEXT, status TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS messages (
+    message_id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL,
+    metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(task_id, conversation_id, message_id);
+CREATE TABLE IF NOT EXISTS research_steps (
+    step_key TEXT PRIMARY KEY, task_id TEXT NOT NULL, input_hash TEXT NOT NULL,
+    result_json TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS lessons (
+    lesson_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, plan_id TEXT NOT NULL,
+    domain TEXT NOT NULL, fingerprint TEXT NOT NULL, content_json TEXT NOT NULL,
+    shared INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_lessons_domain ON lessons(domain, shared);
 """
 
 _LOCK = threading.Lock()
@@ -104,6 +117,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     for version, script in migrations:
         if version > current:
             conn.executescript(script)
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+    if "pid_start" not in columns:
+        conn.execute("ALTER TABLE jobs ADD COLUMN pid_start TEXT")
     conn.execute(
         "INSERT INTO meta(key, value) VALUES('schema_version', ?) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",

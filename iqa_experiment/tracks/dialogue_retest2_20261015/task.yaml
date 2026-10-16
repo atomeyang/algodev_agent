@@ -1,0 +1,116 @@
+schema_version: '1.0'
+task_id: iqa_dialogue_retest2_20261015
+task_slug: iqa_dialogue_retest2_20261015
+domain: iqa
+business: 轻量双输出 IQA 自主研发验证。使用当前本地 IQA pseudo-MOS 基准，输出 0-100 质量分和 blur/over_exp/under_exp/flare/white_balance
+  五类缺陷。主指标 PLCC >= 0.85，SRCC >= 0.85，defect_macro_f1 >= 0.85，grade_agreement >= 0.90，hardcase_macro_f1
+  >= 0.85，ROM < 60 MB。自主研究模型结构、训练策略、loss 和数据方案，产生可执行的代码与数据实验，依据开发集结果再研究、改进并迭代，不等待审批。不能通过降低指标、替换测试集、删除困难样本或修改测试真值取得达标。原始样本及历史产物只读，训练集增强和少量本地弱标注可以实验。历史测试集已暴露，不能宣称本次复测是新的独立业务验收。即使某些门槛受标签覆盖限制，仍在预算内测量代码和数据干预对可测指标的影响，最终明确哪些达标、哪些未达标、哪些不可测。历史模型结果不代表理论上限。
+inputs:
+- rgb_image_256
+outputs:
+- quality_score_0_100
+- defect_multilabel_5
+target_hardware: mobile
+precision: fp16
+hard_constraints:
+- schema_version: '1.0'
+  name: rom_mb_fp16
+  value: 60
+  unit: MB
+  measurement_scope: ''
+  blocking: true
+- schema_version: '1.0'
+  name: dual_output
+  value: score+defects
+  unit: ''
+  measurement_scope: ''
+  blocking: true
+primary_metric:
+  schema_version: '1.0'
+  name: plcc
+  direction: max
+  threshold: 0.85
+  unit: ''
+  protocol_id: ''
+  measured_on: null
+  unknown: false
+  strict: false
+secondary_metrics:
+- schema_version: '1.0'
+  name: srcc
+  direction: max
+  threshold: 0.85
+  unit: ''
+  protocol_id: ''
+  measured_on: null
+  unknown: false
+  strict: false
+- schema_version: '1.0'
+  name: defect_macro_f1
+  direction: max
+  threshold: 0.85
+  unit: ''
+  protocol_id: ''
+  measured_on: null
+  unknown: false
+  strict: false
+- schema_version: '1.0'
+  name: grade_agreement
+  direction: max
+  threshold: 0.9
+  unit: ''
+  protocol_id: ''
+  measured_on: null
+  unknown: false
+  strict: false
+- schema_version: '1.0'
+  name: hardcase_macro_f1
+  direction: max
+  threshold: 0.85
+  unit: ''
+  protocol_id: ''
+  measured_on: null
+  unknown: false
+  strict: false
+- schema_version: '1.0'
+  name: rom_mb
+  direction: min
+  threshold: 60.0
+  unit: ''
+  protocol_id: ''
+  measured_on: null
+  unknown: false
+  strict: true
+budget:
+  schema_version: '1.0'
+  max_research_calls: 3
+  max_coding_calls: 8
+  max_fix_attempts: 2
+  max_experiments: 9
+  max_epochs: 40
+  max_wall_clock_s: 2700.0
+  max_cloud_tokens: 400000
+  max_no_improve: 3
+  max_iterations: 3
+  max_research_steps: 12
+  max_candidates: 2
+  max_data_operations: 8
+  max_added_samples: 240
+  max_annotation_samples: 4
+  max_memory_mb: 0
+  max_output_file_mb: 2048
+unknowns:
+- Historical test benchmark is already exposed; this run is a workflow/replication
+  validation.
+- Pseudo-MOS is not independently collected human MOS.
+- On-device latency and packaged ROM are not measured; ROM is an fp16 parameter estimate.
+demo: false
+synthetic: false
+source: natural_language
+auto_process: true
+require_live_research: false
+research_queries:
+- image quality assessment
+methods_hint: []
+data_sources: []
+created_at: '2026-10-15T07:59:14.007492+00:00'

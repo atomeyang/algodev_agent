@@ -1,0 +1,702 @@
+{
+  "report_markdown": "> RESEARCH MODE: research reasoning produced by the cloud model `deepseek-flash`; new implementations and data experiments are permitted; acceptance targets remain fixed.\n\n## LLM research analysis\n\n### Measured facts (this evidence packet)\n- Dev release preview (seed 7, pseudo benchmark, subject-group split): train 325 rows / development_test 85; defect support train = blur 72, over_exp 36, under_exp 36, flare 7, white_balance 0; dev_test = blur 18, over_exp 9, under_exp 9, flare 3, white_balance 0; score range 28.0-95.9. final_labels_inspected = false.\n- Frozen-protocol reproduction baseline `mobileclip2_v7_score` (KONIQ-trained MobileCLIP2-S0 adapter score head + zero-ROM calibrated measurement defect head) is documented as macro-F1 0.424, PLCC 0.476 on the frozen eval.\n- `multitask_adapter.py` DEFAULTS use 60 epochs, above the task max_epochs=40; `config.py` sets MIN_CLASS_SUPPORT=5, floors 0.85/0.90, and resolves pretrained/adapter checkpoints locally (raises FileNotFoundError when absent).\n- All eight supplied papers are abstract-only leads (evidence_level=abstract_only_not_reproduced), retrieved 2026-10-15 (publication dates 2018-2026); two were returned empty (recall_lessons: none; search_assets model: none).\n\n### Interpretation (gate feasibility)\nWith white_balance support 0 in both splits, per-class F1 for that class is undefined (convention scores 0), so 5-class defect_macro_f1 is capped at 4/5 = 0.80 even with four perfect classes: the 0.85 defect gate is structurally unattainable without new labels, and flare (3 dev_test positives < MIN_CLASS_SUPPORT) is statistically unmeasurable. Only PLCC/SRCC/grade_agreement and supported-class defect F1 (blur/over_exp/under_exp) are measurable this run. The exposed historical test set means replication, not independent acceptance.\n\n### Experiments selected (iteration 1)\nC1 = reproduce the baseline protocol unchanged (reference point). C2 = new coded method `multitask_adapter_rank`: frozen MobileCLIP2-S0 encoder + shared trunk + score head + 5-logit defect head, trained with Huber + pairwise rank + soft-PLCC loss (leads: ev_65aa194cfa multi-task MOS with PLCC loss; ev_6fb3c850a1 learning-to-rank) and class-balanced focal BCE with prior logit adjustment, val-only isotonic calibration and val-only thresholds, fp16 export (~23.4 MB << 60 MB). Data pilots: 120 hflip-augmented train rows and a 4-sample weak-annotation probe for the missing white_balance class.\n\n### Controls / ablations\nA0 baseline; A1 C2 code without augmentation; A2 C2 code with hflip augment (isolates data); A3 score head only (rank/PLCC weights = 0, defect head disabled); A4 fixed 0.5 thresholds and identity calibration vs val-tuned. Same frozen encoder, seed 7 and subject-disjoint val for all; eval labels never touched; headline metrics only from the independent evaluator.\n\n### Falsification and known limits\nA val-PLCC gain < 0.02 over A1 falsifies the loss change; a flare/white_balance recall drop under hflip falsifies label-preserving augmentation for those classes; a macro-F1 5-class claim above 0.80 without new labels would indicate a protocol/metric error. Pseudo-MOS is not human MOS (noise level unknown), and ROM here is an fp16 parameter estimate, not a packaged/latency measurement.\n\n### Unknowns\nGrade-agreement and hardcase_macro_f1 definitions/slices are not supplied (hardcase unmeasurable as specified); whether grading uses the pseudo benchmark (325/85) or the KonIQ release (610 eval rows) is ambiguous; defect-label provenance is unstated; no registered trusted external source exists for `extend`.",
+  "candidates": [
+    {
+      "schema_version": "1.0",
+      "candidate_id": "c1_baseline_reproduction",
+      "method": "mobileclip2_v7_score",
+      "family": "reuse_baseline",
+      "description": "Reproduce the frozen-protocol reference: trained MobileCLIP2-S0 adapter score head + zero-ROM calibrated measurement defect head, no code change, default params.",
+      "expected_gain": "0 (reference point); expected to land near the historically reported macro-F1 0.424 / PLCC 0.476 within replication noise",
+      "cost_estimate": "1 experiment, 1 forward pass over eval inputs, < 2 min GPU",
+      "failure_conditions": [
+        "Pretrained backbone or adapter checkpoint not found -> FileNotFoundError from common/config resolution",
+        "Eval split ambiguity: plugin data.py documents KonIQ (610 eval rows) while the dev preview exposes 85 development_test rows; the measured split must be recorded or the number is not comparable",
+        "Reported baseline 0.424/0.476 cannot be attributed if the evaluated split differs from this run's split",
+        "Not a new independent acceptance test: the historical benchmark is already exposed"
+      ],
+      "ablations": [],
+      "evidence_refs": [
+        "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+        "algorithm_plugins/iqa/config.py",
+        "algorithm_plugins/iqa/data.py",
+        "inspect_data:dev_preview_seed7"
+      ],
+      "is_baseline": true,
+      "source": "",
+      "action": "reuse",
+      "implementation_goal": "No code change. Execute the existing reference method with default config so this run has its own measured reference under the frozen protocol. Dependency checks: MobileCLIP2-S0 pretrained weights and iqa_adapter_v7 checkpoint must resolve (config.pretrained_ckpt()/adapter_ckpt()); if either is missing the method raises FileNotFoundError and must be reported as an infrastructure failure, not a negative result. Prediction: score = clip(adapter_head(features)*100, 0, 100); defects from measure_lib thresholds. Record preds.jsonl, ROM parameter estimate and wall clock in runs/<run_id>/.",
+      "base_method": "",
+      "params": {
+        "feature_batch": 32,
+        "image_size": 256,
+        "score_ckpt": "plugin default (config.adapter_ckpt())",
+        "defect_head": "measurement_rule_zero_rom",
+        "n_eval_expected": 85,
+        "seed": 7
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "candidate_id": "c2_rank_plcc_multitask",
+      "method": "multitask_adapter_rank",
+      "family": "multitask_dual_head_ranking_calibrated",
+      "description": "New coded method in model_pool/: frozen MobileCLIP2-S0 encoder with cached features + dual heads trained with Huber + pairwise rank + soft-PLCC score loss and class-balanced focal BCE with prior logit adjustment, plus val-only monotone calibration and val-only defect thresholds.",
+      "expected_gain": "+0.02 to +0.06 val PLCC/SRCC over the L1-only head (A1) from rank+PLCC loss and monotone calibration; +0.03 to +0.08 supported-class macro-F1 from focal/logit-adjusted defects and val thresholds; 5-class macro-F1 still capped at 0.80 by the 0-support white_balance class",
+      "cost_estimate": "1 coded method (create in model_pool/), ~5 head-training runs on cached 512-d features (seconds-minutes each, <=35 epochs), 1 extra feature extraction pass for 120 flipped rows; ROM ~23.4 MB fp16",
+      "failure_conditions": [
+        "Val PLCC gains < 0.02 over A1 -> loss change not supported; revert to L1/BCE and investigate data instead",
+        "Rank loss with margin 0.1 in z units amplifies pseudo-MOS noise -> val SRCC falls relative to A1 while val L1 falls",
+        "hflip changes flare/light-source direction cues -> flare per-class F1 drops vs A1 (augmentation not label-preserving for that class)",
+        "Verification: supported-class macro-F1 still far below 0.85 (baseline 0.424) and 5-class macro-F1 <= 0.80 by label coverage; PLCC 0.85 unreachable by a single head-only retrain on this pseudo-MOS benchmark if A1/A2 do not move",
+        "Isotonic calibration fitted on ~80 val rows overfits -> check split-half val stability before export",
+        "Any claim of meeting defect/hardcase gates would require label or class changes, which are prohibited (acceptance thresholds must not be lowered)",
+        "If either pretrained or adapter checkpoint is absent the run is an infrastructure failure, not a measured negative"
+      ],
+      "ablations": [
+        "A0 frozen-protocol baseline (candidate c1)",
+        "A1 same code, no augmentation (isolates code/loss effect)",
+        "A2 same code + hflip augment (isolates data effect vs A1)",
+        "A3 score head only (rank_weight=0, plcc_weight=0, defect head disabled)",
+        "A4 fixed 0.5 thresholds + identity calibration vs val-tuned + isotonic"
+      ],
+      "evidence_refs": [
+        "ev_65aa194cfa",
+        "ev_6fb3c850a1",
+        "ev_bbb0672ef6",
+        "ev_9dc571743f",
+        "ev_6b83e38551",
+        "algorithm_plugins/iqa/methods/multitask_adapter.py",
+        "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+        "algorithm_plugins/iqa/config.py"
+      ],
+      "is_baseline": false,
+      "source": "",
+      "action": "create",
+      "implementation_goal": "ARCHITECTURE: reuse the frozen MobileCLIP2-S0-S0 visual encoder (11.41M params, ~22.8 MB fp16) to produce a 512-d embedding; shared trunk Linear(512,256)+LayerNorm+GELU+Dropout(0.15); score head Linear(256,1) predicting z=(score-50)/25; defect head Linear(256,5) logits for blur/over_exp/under_exp/flare/white_balance. Encoder stays frozen; only trunk+heads are trained (encoder features cached, re-extracted only for augmented rows). LOSS: Huber(delta=0.2) on z + 0.3*pairwise hinge rank loss over in-batch pairs with |delta_score| >= 5 to limit pseudo-MOS label noise + 0.2*(1 - batch PLCC) differentiable correlation term + 1.0*class-balanced focal BCE (gamma=1.5, per-class pos_weight clipped [1,10], prior logit adjustment tau=0.5). TRAINING: AdamW lr 2e-3, weight_decay 1e-2, cosine schedule, batch 64, epochs <= 35 (overrides the file default 60, above the task max_epochs=40), early stop patience 8 on val objective 0.5*val_PLCC + 0.5*val_macroF1 over classes with val positives >= MIN_CLASS_SUPPORT, subject-disjoint 25% val from the deterministic dev split, seed 7. PREDICTION: score = clip(100*(25*z+50)) after a monotone isotonic calibration fitted on val only; per-defect decision thresholds grid-searched on val only; classes with val positives < 5 keep 0.5 and are exported flagged 'unmeasurable'. EXPORT: fp16 state_dict (trunk+heads) + config JSON + preds.jsonl under runs/<run_id>/; ROM = 2 bytes * (visual+head params) ~ 23.4 MB. METRICS: computed only by the independent evaluator; report per-class F1 with support and both supported-class macro and 5-class macro (capped by the 0-support class).",
+      "base_method": "multitask_adapter",
+      "params": {
+        "epochs": 35,
+        "early_stop_patience": 8,
+        "lr": 0.002,
+        "weight_decay": 0.01,
+        "batch_size": 64,
+        "hidden": 256,
+        "dropout": 0.15,
+        "image_size": 256,
+        "feature_cache_tag": "mobileclip2s0_256",
+        "huber_weight": 0.5,
+        "huber_delta": 0.2,
+        "rank_weight": 0.3,
+        "rank_margin": 0.1,
+        "rank_min_score_gap": 5.0,
+        "plcc_weight": 0.2,
+        "bce_focal_gamma": 1.5,
+        "pos_weight_clip": [
+          1,
+          10
+        ],
+        "logit_adjust_tau": 0.5,
+        "defect_threshold": 0.5,
+        "tune_thresholds": true,
+        "calibration": "isotonic_on_val",
+        "val_frac": 0.25,
+        "selection_metric": "0.5*val_PLCC + 0.5*val_supported_macroF1",
+        "seeds": [
+          7
+        ],
+        "export": "fp16_state_dict",
+        "rom_budget_mb": 60.0,
+        "split": "train",
+        "eval_labels_used_for_tuning": false
+      }
+    }
+  ],
+  "hypotheses": [
+    "H1: replacing L1-only score regression with Huber + pairwise rank + soft-PLCC loss (frozen encoder, cached features, seed 7) raises val SRCC/PLCC by >= 0.02 over the identical-code L1 head (A1) without touching eval labels.",
+    "H2: class-balanced focal BCE with prior logit adjustment raises recall on over_exp/under_exp (36/36 train positives) but cannot raise white_balance F1 above 0 because no positive exists in train or dev_test.",
+    "H3: 120 hflip-augmented train rows improve val PLCC and supported-class macro-F1 by >= 0.01 versus identical code on the unaugmented train split (A1 vs A2), unless flare is direction-sensitive.",
+    "H4: val-only isotonic calibration raises PLCC more than SRCC (monotone map), so the PLCC-SRCC gap distinguishes monotone error from rank error.",
+    "H5: the 5-class defect_macro_f1 gate of 0.85 is mathematically unattainable under current label coverage (white_balance support 0 => ceiling 4/5 = 0.80) regardless of model quality, and flare (3 dev_test positives) is below MIN_CLASS_SUPPORT=5 so it is unmeasurable.",
+    "Defect Macro-F1 is dominated by the blur, over_exp, under_exp classes; the frozen eval cannot measure white_balance (0 positives).",
+    "Weak classes carried over from feedback: none identified yet.",
+    "A frozen MobileCLIP2-S0 encoder with light multi-task heads reaches the ROM budget with headroom while beating the rule baseline on defect F1."
+  ],
+  "controls": [
+    "A0 frozen-protocol reproduction (candidate c1) with the same seed/split as A1-A4.",
+    "A1 C2 code without any data augmentation -> isolates the loss/architecture change.",
+    "A2 C2 code with hflip augmentation -> isolates the data change against A1.",
+    "A3 score head only (rank_weight=0, plcc_weight=0, defect head disabled) -> attributes gains to the ranking/PLCC terms.",
+    "A4 fixed 0.5 defect thresholds and identity calibration vs val-tuned thresholds and isotonic calibration -> isolates calibration effect.",
+    "All variants share the frozen encoder, seed 7, subject-disjoint val split, cached features, and evaluator-computed metrics; eval labels are never used for tuning.",
+    "identical frozen eval split and metric code for every candidate",
+    "ROM hard constraint checked on every exported model",
+    "compare against measure_threshold and the prior best"
+  ],
+  "counterexamples": [
+    "Historical frozen-eval baseline macro-F1 0.424 / PLCC 0.476 shows the deployed pipeline is far below the 0.85 gates; a single head-only retrain is unlikely to close that gap, so 'loss change alone reaches the gates' is not supported.",
+    "white_balance has 0 positives in train (325) and dev_test (85): any 5-class macro-F1 >= 0.85 claim would require changing labels or dropping the class, which is prohibited - a hard counterexample to the defect gate as specified.",
+    "flare has 7 train / 3 dev_test positives (< MIN_CLASS_SUPPORT=5): a val-selected threshold can look good yet fail at eval, so 'threshold tuning = gain' is not established.",
+    "hflip augmentation may flip flare/light-source geometry: a label-preserving assumption that holds for blur/exposure may fail for flare.",
+    "The multi-task/PLCC-loss and ranking papers are abstract-only and not reproduced, so they are leads, not evidence that these losses help on this pseudo-MOS benchmark."
+  ],
+  "unknowns": [
+    "grade_agreement and hardcase_macro_f1 protocols/definitions are not supplied and the hardcase slice is absent from the evidence -> hardcase gate is not measurable as specified.",
+    "Whether grading uses the pseudo benchmark preview (325 train / 85 dev_test) or the KonIQ-10k release (610 eval rows) is ambiguous in data.py; the baseline numbers' evaluated split is unclear.",
+    "Pseudo-MOS noise level, defect-label provenance (auto vs human) and severity distribution are unstated, so the rank-loss margin and min-gap are unvalidated priors.",
+    "The historical test set is already exposed: this run is workflow/replication validation, not new independent business acceptance.",
+    "ROM is an fp16 parameter estimate (~23.4 MB), not a packaged artifact or latency measurement; on-device latency is unmeasured.",
+    "No registered trusted external source exists for extend operations, and only 4 weak-annotation samples are permitted, so the missing white_balance class cannot be made measurable this run.",
+    "Whether the truncated remainder of multitask_adapter.py already implements any ranking/PLCC term is unverified; the candidate assumes it implements L1 + class-weighted BCE.",
+    "white_balance unmeasurable on the frozen eval (0 positives)",
+    "on-device latency not measured"
+  ],
+  "evidence_refs": [
+    "ev_65aa194cfa",
+    "ev_6fb3c850a1",
+    "ev_bbb0672ef6",
+    "ev_9dc571743f",
+    "ev_6b83e38551",
+    "ev_3aaac9b916",
+    "ev_a79166b67c",
+    "ev_a09419214e",
+    "algorithm_plugins/iqa/methods/multitask_adapter.py",
+    "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+    "algorithm_plugins/iqa/methods/score_moe.py",
+    "algorithm_plugins/iqa/config.py",
+    "algorithm_plugins/iqa/data.py",
+    "algorithm_plugins/iqa/metrics.py",
+    "inspect_data:dev_preview_seed7_train325_devtest85"
+  ],
+  "data_recipe": {
+    "schema_version": "1.0",
+    "recipe_id": "iqa_recipe_v1",
+    "description": "Frozen iqa_agent benchmark: 410 labelled dev rows (train/val, subject-disjoint) + 610-image frozen eval (labels held out of the method's data dir). Label-gap classes are filled offline: local_largemodel/qwen3.8-27b proposes candidate defect labels (scripts/iqa_annotate.py, prompt iqa-prelabel-v1) and every candidate goes through human review before it can enter a dataset version; classes with no measurable support receive severity-matched augmentation (see the data plan in the research report).",
+    "source": "qaa_iqa_frozen_benchmark + local_vlm_prelabels(qwen3.8-27b) + severity-matched augmentation",
+    "transforms": [
+      "shortest_side_resize_256",
+      "bicubic",
+      "imagenet_free_normalisation(0/1)",
+      "human-reviewed local-VLM pre-labels (provenance: model_id+prompt_version)",
+      "train-split-only augmentation for zero/low-support classes"
+    ],
+    "splits": {
+      "train": 0.75,
+      "val": 0.25
+    },
+    "seed": 7,
+    "augmentation": [],
+    "isolation": "subject-group-disjoint train/val; eval labels never exposed to the method; augmentation never touches the frozen eval in the same protocol version",
+    "operations": []
+  },
+  "eval_protocol": {
+    "schema_version": "1.0",
+    "protocol_id": "iqa_frozen_v1",
+    "primary_metric": "plcc",
+    "direction": "max",
+    "threshold": 0.85,
+    "slices": [
+      "blur",
+      "over_exp",
+      "under_exp",
+      "flare",
+      "white_balance",
+      "hardcase"
+    ],
+    "frozen": true,
+    "dataset_version": "v1",
+    "code_hash": "",
+    "notes": "frozen metric code in algorithm_plugins/iqa/metrics.py (parity-checked against iqa_agent.tools.iqa_model.evaluate); ROM from fp16 params.",
+    "stage": "legacy"
+  },
+  "cost": {
+    "usage": {
+      "prompt_tokens": 15897,
+      "completion_tokens": 14182,
+      "total_tokens": 30079,
+      "prompt_tokens_details": {
+        "cached_tokens": 7936
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 9547
+      },
+      "prompt_cache_hit_tokens": 7936,
+      "prompt_cache_miss_tokens": 7961
+    },
+    "source": "cloud",
+    "model": "deepseek-flash"
+  },
+  "status": "completed",
+  "offline": false,
+  "tool_calls": [
+    {
+      "tool": "search_sources",
+      "refs": 8,
+      "used_search_service": true,
+      "note": "arxiv: 8 results; metadata/abstracts only, not reproduction"
+    },
+    {
+      "tool": "build_packet",
+      "refs": 8
+    },
+    {
+      "tool": "inspect_data",
+      "result": {
+        "releases": [],
+        "source_preview": {
+          "status": "preview_not_frozen",
+          "scope": "development_only",
+          "benchmark": "pseudo",
+          "seed": 7,
+          "group": "subject",
+          "splits": {
+            "train": {
+              "count": 325,
+              "defect_support": {
+                "blur": 72,
+                "over_exp": 36,
+                "under_exp": 36,
+                "flare": 7,
+                "white_balance": 0
+              },
+              "score_range": [
+                28.0,
+                95.9
+              ]
+            },
+            "development_test": {
+              "count": 85,
+              "defect_support": {
+                "blur": 18,
+                "over_exp": 9,
+                "under_exp": 9,
+                "flare": 3,
+                "white_balance": 0
+              },
+              "score_range": [
+                28.0,
+                95.9
+              ]
+            }
+          },
+          "final_labels_inspected": false,
+          "label_semantics": "pseudo-MOS + defects",
+          "note": "Preview uses the default seed; the published data recipe fixes the actual split."
+        }
+      }
+    },
+    {
+      "tool": "get_code_excerpt",
+      "result": {
+        "path": "algorithm_plugins/iqa/methods/multitask_adapter.py",
+        "content": "# -*- coding: utf-8 -*-\n\"\"\"MobileCLIP2-S0 + multi-task adapter heads (the main plan-A1 candidate).\n\nFrozen MobileCLIP2-S0 visual encoder (11.41 M params, ~22.8 MB fp16) with two\nlightweight trainable heads on the shared 512-d embedding:\n\n* a score head  -> continuous 0-100 quality score (report plan A1);\n* a defect head -> 5 independent logits for blur / over_exp / under_exp /\n  flare / white_balance (multi-label, class-weighted BCE).\n\nTraining uses only the *dev* split (subject-group-disjoint train/val); the\nfrozen eval split is touched once, for prediction, and the headline metrics are\ncomputed by the independent evaluator, never here.\n\nEverything runs on GPU when available; encoder features are cached so the\nself-optimisation loop can re-train heads in seconds.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport time\nfrom pathlib import Path\nfrom typing import Any, Dict, List, Tuple\n\nimport numpy as np\n\nfrom . import clip_backbone, common\n\nDEFAULTS: Dict[str, Any] = {\n    \"epochs\": 60,\n    \"lr\": 2e-3,\n    \"weight_decay\": 1e-2,\n    \"hidden\": 256,\n    \"dropout\": 0.15,\n    \"batch_size\": 64,\n    \"bce_weight\": 1.0,\n    \"l1_weight\": 0.5,\n    \"pos_weight_scale\": 1.0,\n    \"min_pos_weight\": 1.0,\n    \"max_pos_weight\": 20.0,\n    \"defect_threshold\": 0.5,\n    \"tune_thresholds\": True,\n    \"image_size\": 256,\n    \"feature_batch\": 32,\n}\n\n\ndef _pos_weight(d: np.ndarray, scale: float, lo: float, hi: float) -> np.ndarray:\n    pos = d.sum(axis=0).astype(float)\n    neg = d.shape[0] - pos\n    w = np.where(pos > 0, neg / np.maximum(pos, 1.0), 1.0)\n    w = np.clip(w * float(scale), lo, hi)\n    return w.astype(np.float32)\n\n\ndef _macro_f1(y: np.ndarray, p: np.ndarray, classes: List[int]) -> float:\n    f1s = []\n    for c in classes:\n        yt, yp = y[:, c], p[:, c]\n        tp = int(((yt == 1) & (yp == 1)).sum())\n        fp = int(((yt == 0) & (yp == 1)).sum())\n        fn = int(((yt == 1) & (yp == 0)).sum())\n        prec = tp / (tp + fp) if (tp + fp) else 0.0\n        rec = tp / (tp + fn) if (tp + fn) else 0.0\n        f1s.append((2 * prec * rec / (prec + rec)) if (prec + rec) else 0.0)\n    return float(np.mean(f1s)) if f1s else 0.0\n\n\ndef _best_thresholds(y: np.ndarray, prob: np.ndarray, classes: List[int]) -> Dict[int, float]:\n    thresholds: Dict[int, float] = {}\n    grid = np.arange(0.05, 0.96, 0.025)\n    for c in classes:\n        best_t, best_f1 = 0.5, -1.0\n        for t in grid:\n            p = (prob[:, c] >= t).astype(int)\n            yt = y[:, c]\n            tp = int(((yt == 1) & (p == 1)).sum())\n            fp = int(((yt == 0) & (p == 1)).sum())\n            fn = int(((yt == 1) & (p == 0)).sum())\n            prec = tp / (tp + fp) if (tp + fp) else 0.0\n            rec = tp / (tp + fn) if (tp + fn) else 0.0\n            f1 = (2 * prec * rec / (prec + rec)) if (prec + rec) else 0.0\n            if f1 > best_f1:\n                best_f1, best_t = f1, float(t)\n        thresholds[c] = best_t\n    return thresholds\n\n\ndef _plcc(a: np.ndarray, b: np.ndarray) -> float:\n    if len(a) < 3 or float(np.std(a)) == 0 or float(np.std(b)) == 0:\n        return 0.0\n    return float(np.corrcoef(a, b)[0, 1])\n\n\ndef run(ctx, config: Dict[str, Any]) -> Dict[str, Any]:\n    import torch\n    import torch.nn as nn\n\n    cfg = {**DEFAULTS, **(config or {})}\n    C = common.plugin_config()\n    dev = common.load_dev(ctx.data_dir)\n    inputs = common.load_eval_inputs(ctx.data_dir)\n    split = common.load_dev_split(ctx.data_dir)\n    device = common.resolve_device() or torch.device(\"cpu\")\n    cache = Path(common.cache_dir(ctx))\n    t_start = time.time()\n\n    pretrained = C.pretrained_ckpt()\n    if not Path(pretrained).exists():\n        raise FileNotFoundError(f\"MobileCLIP2-S0 pretrained weights missing: {pretrained}\")\n\n    dev_paths = [r[\"path\"] for r in dev]\n    eval_paths = [r[\"path\"] for r in inputs]\n\n    encoder, preprocess = clip_backbone.build_encoder(pretrained, int(cfg[\"image_size\"]))\n    encoder = encoder.to(device)\n    X_dev = clip_backbone.extract_features(encoder, preprocess, dev_paths, device,\n                                           cache_dir=cache, tag=\"mobileclip2s0_256\",\n                                           batch_size=int(cfg[\"feature_batch\"]))\n    X_eval = clip_backbone.extract_features(encoder, preprocess, eval_paths, device,\n                                            cache_dir=cache, tag=\"mobileclip2s0_256\",\n                                            batch_size=int(cfg[\"feature_batch\"]))\n\n    n = len(dev)\n    tr_idx = np.asarray(split.get(\"train\") or list(range(n)), dtype=int)\n    va_idx = np.asarray(split.get(\"val\") or list(range(n)), dtype=int)\n    dim = X_dev.shape[1]\n\n    y_score = np.asarray([float(r.get(\"score\", 0.0)) for r in dev], dtype=np.float32)\n    y_def = np.asarray([common.defect_vector(r, C.DEFECTS) for r in dev], dtype=np.float32)\n    y_scaled = (y_score - 50.0) / 25.0\n    classes = [i for i, d in enumerate(C.DEFECTS) if int(y_def[:, i].sum()) > 0]\n\n    mu, sd = X_dev[tr_idx].mean(axis=0, keepdims=True), X_dev[tr_idx].std(axis=0, keepdims=True) + 1e-6\n    Xt = torch.tensor((X_dev - mu) / sd, dtype=torch.float32, device=device)\n    Xe = torch.tensor((X_eval - mu) / sd, dtype=torch.float32, device=device)\n    Yt = torch.tensor(y_scaled, dtype=torch.float32, device=device)\n    Dt = torch.tensor(y_def, dtype=torch.float32, device=device)\n    tr = torch.tensor(tr_idx, dtype=torch.long, device=device)\n    va = torch.tensor(va_idx, dtype=torch.long, device=device)\n\n    class MultiTaskHead(nn.Module):\n        def __init__(self, in_dim: int, hidden: int, dropout: float, n_def: int):\n            super().__init__()\n            self.trunk = nn.Sequential(\n                nn.Linear(in_dim, hidden), nn.LayerNorm(hidden), nn.GELU(), nn.Dropout(dropout))\n            self.score = nn.Linear(hidden, 1)\n            self.defect = nn.Linear(hidden, n_def)\n"
+      }
+    },
+    {
+      "tool": "get_code_excerpt",
+      "result": {
+        "path": "algorithm_plugins/iqa/methods/mobileclip2_v7_score.py",
+        "content": "# -*- coding: utf-8 -*-\n\"\"\"Real trained score head (iqa_adapter_v7) + measurement defect head.\n\nThis is the *reproduction baseline* the iqa_agent engine reported (macro-F1\n0.424, PLCC 0.476 on the frozen eval): the KONIQ-trained MobileCLIP2-S0 adapter\nprovides a real continuous score, while the deployable defect head is the\nzero-ROM calibrated measurement rule. It proves the frozen protocol reproduces\nthe reference numbers inside algo_agent.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport time\nfrom pathlib import Path\nfrom typing import Any, Dict, List\n\nimport numpy as np\n\nfrom . import clip_backbone, common, measure_lib\n\n\ndef run(ctx, config: Dict[str, Any]) -> Dict[str, Any]:\n    import torch\n\n    cfg = dict(config or {})\n    C = common.plugin_config()\n    inputs = common.load_eval_inputs(ctx.data_dir)\n    device = common.resolve_device() or torch.device(\"cpu\")\n    t0 = time.time()\n\n    pretrained = C.pretrained_ckpt()\n    ckpt = Path(cfg.get(\"score_ckpt\") or C.adapter_ckpt())\n    if not Path(pretrained).exists() or not ckpt.exists():\n        raise FileNotFoundError(f\"missing backbone ({pretrained}) or adapter ({ckpt})\")\n\n    adapter, info = clip_backbone.load_trained_adapter(ckpt, pretrained, device)\n    encoder = adapter.model\n\n    cache = Path(common.cache_dir(ctx))\n    paths = [r[\"path\"] for r in inputs]\n    feats = clip_backbone.extract_features(encoder, adapter.preprocess_val, paths, device,\n                                           cache_dir=cache, tag=\"mobileclip2s0_lora_256\",\n                                           batch_size=int(cfg.get(\"feature_batch\", 32)))\n    with torch.no_grad():\n        scores = adapter.head(torch.tensor(feats, dtype=torch.float32, device=device)).cpu().numpy()\n    scores = np.clip(scores * 100.0, 0.0, 100.0)\n\n    thr = C.measure_thresholds()\n    defect_map = measure_lib.measure_defects_cached(paths, thr, C.DEFECTS, cache_dir=cache)\n\n    rows = [common.make_pred(r[\"path\"], float(scores[i]), defect_map[r[\"path\"]])\n            for i, r in enumerate(inputs)]\n    common.write_preds(ctx, rows)\n\n    visual_params = sum(p.numel() for p in adapter.model.visual.parameters())\n    head_params = sum(p.numel() for p in adapter.head.parameters())\n    rom = C.rom_estimate((visual_params + head_params) / 1e6)\n    return {\n        \"method\": \"mobileclip2_v7_score\", \"split\": getattr(ctx, \"split\", \"test\"),\n        \"seed\": int(getattr(ctx, \"seed\", 0) or 0), \"n_eval\": len(rows), \"synthetic\": False,\n        \"device\": str(device), \"rom_params_millions\": round((visual_params + head_params) / 1e6, 3),\n        \"rom\": rom, \"ckpt\": str(ckpt), \"ckpt_info\": info,\n        \"wall_clock_s\": round(time.time() - t0, 1),\n        \"metrics\": {\"n_eval\": len(rows)},\n        \"note\": \"trained MobileCLIP2-S0 adapter score + measurement defect head (reproduction baseline)\",\n    }\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(\"run through algo_agent.execution.method_worker\")"
+      }
+    },
+    {
+      "tool": "get_code_excerpt",
+      "result": {
+        "path": "algorithm_plugins/iqa/data.py",
+        "content": "# -*- coding: utf-8 -*-\n\"\"\"Dataset export for the IQA plugin.\n\nTurns the *frozen* IQA benchmark produced by the ``iqa_agent`` research engine\ninto an immutable task release, with a deliberate train/eval isolation:\n\nrelease (``data/releases/<v>/``), handed to the method subprocess\n    ``dev.jsonl``          -- 410 labelled rows (train/val; pseudo-MOS + defects)\n    ``dev_split.json``     -- deterministic subject-group-disjoint train/val index\n    ``eval_inputs.jsonl``  -- 610 rows: ``{path, image}`` only, NO labels\n    ``benchmark_meta.json``-- counts, per-defect support, source hashes\n\nevaluation protocol dir (``evaluation/protocols/<v>/``), NOT given to methods\n    ``eval_labels.jsonl``  -- 610 labelled rows, read only by the frozen evaluator\n\nDefect labels / pseudo-MOS come from the iqa_agent benchmark; the eval split is\nsubject-group-disjoint from dev, so no image/subject leaks into training.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom pathlib import Path\nfrom typing import Any, Dict, List, Optional\n\nfrom . import config as C\n\n\ndef load_rows(path: str | Path) -> List[Dict[str, Any]]:\n    p = Path(path)\n    if not p.exists():\n        return []\n    rows: List[Dict[str, Any]] = []\n    for line in p.read_text(encoding=\"utf-8\").splitlines():\n        line = line.strip()\n        if line:\n            rows.append(json.loads(line))\n    return rows\n\n\ndef defect_support(rows: List[Dict[str, Any]]) -> Dict[str, int]:\n    support = {d: 0 for d in C.DEFECTS}\n    for r in rows:\n        for d in C.DEFECTS:\n            if int(bool((r.get(\"defects\") or {}).get(d, {}).get(\"present\", 0))):\n                support[d] += 1\n    return support\n\n\ndef _strip_labels(row: Dict[str, Any]) -> Dict[str, Any]:\n    return {\"path\": row.get(\"path\"), \"image\": row.get(\"image\")}\n\n\ndef _split_dev(rows: List[Dict[str, Any]], seed: int = 7, val_frac: float = 0.25) -> Dict[str, Any]:\n    \"\"\"Subject-group-disjoint train/val index (deterministic).\"\"\"\n    subjects = sorted({str(r.get(\"subject\") or r.get(\"image\") or i) for i, r in enumerate(rows)})\n    import random\n    rng = random.Random(seed)\n    rng.shuffle(subjects)\n    n_val = max(1, int(round(len(subjects) * val_frac)))\n    val_subjects = set(subjects[:n_val])\n    train_idx, val_idx = [], []\n    for i, r in enumerate(rows):\n        subj = str(r.get(\"subject\") or r.get(\"image\") or i)\n        (val_idx if subj in val_subjects else train_idx).append(i)\n    return {\"seed\": seed, \"val_frac\": val_frac, \"train\": train_idx, \"val\": val_idx,\n            \"n_train\": len(train_idx), \"n_val\": len(val_idx), \"group\": \"subject\"}\n\n\ndef _negative_defects() -> Dict[str, Dict[str, Any]]:\n    out = {d: {\"present\": 0, \"severity\": 0} for d in C.DEFECTS}\n    out[\"white_balance\"][\"direction\"] = \"neutral\"\n    return out\n\n\ndef _koniq_rows(*, include_eval: bool = True) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:\n    \"\"\"Read the real-MOS KonIQ-10k CSV into (dev_rows, eval_rows).\n\n    ``dev`` = official *training* + *validation* images (labels visible to the\n    method); ``eval`` = the official *test* images (labels frozen).  KonIQ has\n    no defect taxonomy, so every row carries an all-absent 5-defect map; the\n    real human MOS is the score.\n    \"\"\"\n    import csv\n    csv_path, img_dir = C.koniq_sets_csv(), C.koniq_image_dir()\n    if not csv_path.exists():\n        raise FileNotFoundError(f\"KonIQ metadata not found at {csv_path}\")\n    dev: List[Dict[str, Any]] = []\n    ev: List[Dict[str, Any]] = []\n    with csv_path.open(\"r\", encoding=\"utf-8\", newline=\"\") as fh:\n        for r in csv.DictReader(fh):\n            if not include_eval and r.get(\"set\") not in (\"training\", \"validation\"):\n                continue\n            name = (r.get(\"image_name\") or \"\").strip()\n            if not name:\n                continue\n            ip = Path(img_dir) / name\n            if not ip.exists():\n                continue\n            row = {\n                \"path\": str(ip), \"image\": name, \"subject\": name,\n                \"score\": float(r[\"MOS\"]), \"defects\": _negative_defects(),\n                \"benchmark\": \"koniq10k\", \"set\": r.get(\"set\", \"\"),\n            }\n            (dev if r.get(\"set\") in (\"training\", \"validation\") else ev).append(row)\n    return dev, ev\n\n\ndef development_source_summary(seed: int = 7) -> Dict[str, Any]:\n    \"\"\"Preview only development aggregates, without opening holdout labels.\"\"\"\n    rows = _koniq_rows(include_eval=False)[0] if C.benchmark_source() == \"koniq\" else load_rows(C.dev_jsonl())\n    if not rows:\n        return {\"status\": \"missing\", \"scope\": \"development_only\"}\n    split = _split_dev(rows, seed=seed)\n    summaries = {}\n    for name, key in ((\"train\", \"train\"), (\"development_test\", \"val\")):\n        selected = [rows[i] for i in split[key]]\n        scores = [float(r[\"score\"]) for r in selected if r.get(\"score\") is not None]\n        summaries[name] = {\n            \"count\": len(selected), \"defect_support\": defect_support(selected),\n            \"score_range\": [min(scores), max(scores)] if scores else None,\n        }\n    return {\"status\": \"preview_not_frozen\", \"scope\": \"development_only\",\n            \"benchmark\": C.benchmark_source(), \"seed\": seed, \"group\": \"subject\",\n            \"splits\": summaries, \"final_labels_inspected\": False,\n            \"label_semantics\": \"human MOS; no defect labels\" if C.quality_only() else \"pseudo-MOS + defects\",\n            \"note\": \"Preview uses the default seed; the published data recipe fixes the actual split.\"}\n\n\ndef export_benchmark(tp, version: str, *, seed: int = 7) -> Dict[str, Any]:\n    \"\"\"Materialise the release + frozen evaluation protocol for *version*.\"\"\"\n    if C.benchmark_source() == \"koniq\":\n        return _export_koniq(tp, version, seed=seed)\n    release = tp.release_dir(version)\n    release.mkdir(parents=True, exist_ok=True)\n\n    dev_src, eval_src = C.dev_jsonl(), C.eval_jsonl()\n    if not dev_src.exists() or not eval_src.exists():\n        raise FileNotFoundError(\n            f\"IQA benchmark not found under {C.benchmark_dir()}; set QAA_ROOT to the workspace\")"
+      }
+    },
+    {
+      "tool": "get_code_excerpt",
+      "result": {
+        "path": "algorithm_plugins/iqa/config.py",
+        "content": "# -*- coding: utf-8 -*-\n\"\"\"IQA domain configuration for the algo_agent business plugin.\n\nSingle source of truth for the light dual-output IQA task: the defect taxonomy,\nthe acceptance floors, the ROM budget and the resolution of the real local\nassets (frozen benchmark, pretrained MobileCLIP2-S0 / trained adapter).\n\nThe parent workspace (``.../QAA``) holds the real IQA material produced by the\n``iqa_agent`` research engine.  Everything resolves local-first with an env\noverride (``QAA_ROOT``) so the plugin also runs when the workspace is moved.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom pathlib import Path\nfrom typing import Any, Dict, List\n\n# ---- defect taxonomy (from the IQA requirement report) --------------------\nDEFECTS: List[str] = [\"blur\", \"over_exp\", \"under_exp\", \"flare\", \"white_balance\"]\nDEFECT_ZH: Dict[str, str] = {\n    \"blur\": \"模糊\", \"over_exp\": \"过曝\", \"under_exp\": \"欠曝\",\n    \"flare\": \"炫光\", \"white_balance\": \"白平衡\",\n}\nSEVERITY: Dict[int, str] = {0: \"none\", 1: \"light\", 2: \"medium\", 3: \"heavy\"}\nWB_DIRECTIONS: List[str] = [\"cool\", \"warm\", \"green\", \"magenta\"]\n\n# ---- acceptance floors (report ch.4 / ch.10) ------------------------------\nROM_BUDGET_MB: float = float(os.environ.get(\"ROM_BUDGET_MB\", 60.0))\nSCORE_PLCC_FLOOR: float = 0.90\nSCORE_SRCC_FLOOR: float = 0.90\nDEFECT_MACROF1_FLOOR: float = 0.85\nHARDCASE_F1_FLOOR: float = 0.85\nGRADE_AGREEMENT_FLOOR: float = 0.90\nDEPLOY_PARAMS_MILLIONS: float = float(os.environ.get(\"DEPLOY_PARAMS_MILLIONS\", 11.46))\n\n# ---- real-MOS (KonIQ-10k) track floors ------------------------------------\n# The requirement report's PLCC/SRCC target is defined against *real* human MOS\n# (the trained adapter reproduced KonIQ val PLCC 0.909 / test 0.818 there).  On\n# that quality-only track the defect F1 / hardcase / grade gates do not apply\n# (KonIQ ships no defect annotations), so the acceptance floors are the two\n# rank-correlation metrics the user asked for.\nQUALITY_PLCC_FLOOR: float = float(os.environ.get(\"IQA_QUALITY_PLCC_FLOOR\", 0.85))\nQUALITY_SRCC_FLOOR: float = float(os.environ.get(\"IQA_QUALITY_SRCC_FLOOR\", 0.85))\n\n# A defect class needs at least this many ground-truth positives on the frozen\n# eval split to be *measurable*; below it the class F1 is undefined (the\n# convention below scores 0) and the all-class macro is structurally capped.\nMIN_CLASS_SUPPORT: int = 5\n\n# score -> grade bucket for the 分档一致率 (grade agreement) metric\nGRADE_BINS = [(85.0, \"excellent\"), (70.0, \"good\"), (50.0, \"fair\"), (0.0, \"poor\")]\n\n# ---- workspace / asset resolution -----------------------------------------\nPLUGIN_DIR = Path(__file__).resolve().parent\nREPO_ROOT = PLUGIN_DIR.parent.parent            # .../algo_agent\n_WORKSPACE_DEFAULT = REPO_ROOT.parent           # .../QAA\n\n\ndef qaa_root() -> Path:\n    \"\"\"Parent workspace that holds the real IQA assets (env-overridable).\"\"\"\n    return Path(os.environ.get(\"QAA_ROOT\", str(_WORKSPACE_DEFAULT)))\n\n\ndef iqa_agent_dir() -> Path:\n    return qaa_root() / \"iqa_agent\"\n\n\ndef benchmark_dir() -> Path:\n    return iqa_agent_dir() / \"_work\" / \"benchmark\"\n\n\ndef registry_dir() -> Path:\n    return iqa_agent_dir() / \"_work\" / \"registry\"\n\n\ndef dev_jsonl() -> Path:\n    return benchmark_dir() / \"dev.jsonl\"\n\n\ndef eval_jsonl() -> Path:\n    return benchmark_dir() / \"eval.jsonl\"\n\n\ndef measure_thresholds_path() -> Path:\n    return registry_dir() / \"measure_thresholds.json\"\n\n\ndef baseline_report_path() -> Path:\n    return registry_dir() / \"baseline.json\"\n\n\ndef _first_existing(*candidates: Path) -> Path:\n    for c in candidates:\n        if Path(c).exists():\n            return Path(c)\n    return Path(candidates[0])\n\n\ndef pretrained_ckpt() -> Path:\n    \"\"\"MobileCLIP2-S0 open_clip pretrained weights (encoder backbone).\"\"\"\n    return _first_existing(\n        iqa_agent_dir() / \"models\" / \"mobileclip2_s0.pt\",\n        qaa_root() / \"chuanyin_mobileclip2_final\" / \"runs\" / \"mobileclip2_s0.pt\",\n    )\n\n\ndef adapter_ckpt() -> Path:\n    \"\"\"Trained single-task IQA adapter (KONIQ-trained score head).\"\"\"\n    return _first_existing(\n        iqa_agent_dir() / \"models\" / \"iqa_adapter_v7\" / \"best.pt\",\n        qaa_root() / \"chuanyin_mobileclip2_final\" / \"runs\" / \"iqa_adapter_v7\" / \"best.pt\",\n    )\n\n\n# Calibrated measurement thresholds (F1-maximising on dev). Shipping the values\n# here keeps the plugin runnable even when the parent workspace is absent.\nDEFAULT_MEASURE_THRESHOLDS: Dict[str, Dict[str, Any]] = {\n    \"blur\": {\"feature\": \"laplacian_var\", \"direction\": \"lt\", \"threshold\": 492.852},\n    \"over_exp\": {\"feature\": \"over_ratio\", \"direction\": \"gt\", \"threshold\": 0.04857},"
+      }
+    },
+    {
+      "tool": "recall_lessons",
+      "result": {
+        "lessons": []
+      }
+    },
+    {
+      "tool": "search_assets",
+      "result": {
+        "assets": []
+      }
+    }
+  ],
+  "extras": {
+    "precision_status": {
+      "iteration": 1,
+      "source": "frozen registry baseline (start point; no agent run yet)",
+      "best_model": "measure_threshold / mobileclip2_v7_score (reference)",
+      "primary_metric": "plcc",
+      "rows": [
+        {
+          "metric": "plcc",
+          "label": "score PLCC",
+          "value": 0.4757,
+          "floor": 0.85,
+          "role": "primary gate",
+          "verdict": "fail",
+          "primary": true
+        },
+        {
+          "metric": "defect_macro_f1",
+          "label": "defect Macro-F1",
+          "value": 0.424,
+          "floor": 0.85,
+          "role": "secondary gate",
+          "verdict": "fail",
+          "primary": false
+        },
+        {
+          "metric": "defect_macro_f1_cov",
+          "label": "defect Macro-F1 (covered classes only)",
+          "value": null,
+          "floor": 0.85,
+          "role": "secondary view, excludes 0-support classes",
+          "verdict": "not measured",
+          "primary": false
+        },
+        {
+          "metric": "srcc",
+          "label": "score SRCC",
+          "value": 0.5085,
+          "floor": 0.9,
+          "role": "score ranking",
+          "verdict": "fail",
+          "primary": false
+        },
+        {
+          "metric": "hardcase_macro_f1",
+          "label": "hardcase Macro-F1",
+          "value": 0.5188,
+          "floor": 0.85,
+          "role": "degraded-slice gate",
+          "verdict": "fail",
+          "primary": false
+        },
+        {
+          "metric": "grade_agreement",
+          "label": "grade agreement",
+          "value": null,
+          "floor": 0.9,
+          "role": "bucket agreement",
+          "verdict": "not measured",
+          "primary": false
+        },
+        {
+          "metric": "rom_mb",
+          "label": "ROM (fp16)",
+          "value": null,
+          "floor": 60.0,
+          "role": "hard constraint, lower is better",
+          "verdict": "not measured",
+          "direction": "max_budget"
+        }
+      ],
+      "failing": [
+        "plcc",
+        "defect_macro_f1",
+        "srcc",
+        "hardcase_macro_f1"
+      ],
+      "n_failing": 4,
+      "n_eval": 610,
+      "quality_only": false,
+      "support": {
+        "blur": 150,
+        "over_exp": 75,
+        "under_exp": 75,
+        "flare": 9,
+        "white_balance": 0
+      },
+      "notes": [
+        "white_balance has 0 positives on the frozen eval, so the all-class Macro-F1 is structurally capped at 0.80 even with perfect F1 on the other four classes; `defect_macro_f1_cov` is the view that can actually reach 0.85.",
+        "flare has only 9 eval positives -> wide confidence interval, no statistically reliable read on the flare head.",
+        "iteration 1 has no agent run yet, so the table shows the frozen registry baseline as the starting point.",
+        "score ground truth is severity-quantised pseudo-MOS, not a real MOS panel: PLCC/SRCC read low and any PLCC discrepancy across runs must be re-checked before it is believed.",
+        "primary metric is PLCC; the score targets are a severity-quantised pseudo-MOS (good images get a filename-hash score in 88.0-95.9 that is not derivable from pixels), so a high PLCC requires near-perfect 4-level severity classification and has a structural ceiling below the defect-oriented framing suggests."
+      ]
+    },
+    "optimization_plan": [
+      {
+        "id": "opt-score-rank-loss",
+        "track": "model + loss",
+        "target": "score PLCC / SRCC",
+        "change": "Train the score head with a pairwise ranking term on top of MSE (loss = MSE(score, mos) + lambda * margin-rank loss over (i, j) pairs with |mos_i - mos_j| > delta), because PLCC/SRCC are rank statistics while MSE only optimises calibration.",
+        "concrete_params": {
+          "rank_loss": "pairwise Logistic/MarginRankingLoss",
+          "lambda": "0.3 -> 1.0",
+          "delta": "0.1 (ignore near-ties in the pseudo-MOS)",
+          "head": "score MLP 256->1"
+        },
+        "why_now": "plcc/srcc are the gates with the largest gap.",
+        "expected_effect": "rank correlation up without retraining the encoder; calibration reported separately",
+        "risk": "pairwise loss can collapse the score scale -> watch MAE/grade agreement"
+      },
+      {
+        "id": "opt-defect-asymmetric-loss",
+        "track": "loss",
+        "target": "defect Macro-F1 (weak classes: tbd)",
+        "change": "Replace the plain BCE with class-balanced asymmetric focal BCE: pos_weight_d = clip(N_neg / N_pos, 1.0, max_pos_weight) computed per class on the train split, focal gamma 1.5, and a per-class decision threshold tuned on the subject-disjoint val split by F1 maximisation.",
+        "concrete_params": {
+          "pos_weight_scale": "1.5-2.5",
+          "max_pos_weight": 40.0,
+          "focal_gamma": 1.5,
+          "threshold_tuning": "val-split F1 max, one threshold per class",
+          "label_smoothing": 0.02
+        },
+        "why_now": "generalises the class-balance fix for any class the loop flags next.",
+        "expected_effect": "rare-class recall up; guard precision with the per-class threshold",
+        "risk": "over-predicting rare classes inflates FP on the frequent classes"
+      },
+      {
+        "id": "opt-train-strategy",
+        "track": "training strategy",
+        "target": "stability + generalisation on the 410-row dev split",
+        "change": "Longer, better-regularised head training: warmup 5% + cosine decay, EMA of head weights, early stop on val macro-F1 with patience 20, gradient accumulation to an effective batch >= 64, fp16 autocast, and encoder unfreezing scheduled so the last N transformer blocks train only after the head has stabilised.",
+        "concrete_params": {
+          "epochs": "120-200 (budget max_epochs=200)",
+          "warmup": "5%",
+          "cosine": true,
+          "ema_decay": 0.999,
+          "early_stop_patience": 20,
+          "effective_batch": 64,
+          "amp": "fp16",
+          "unfreeze_last_blocks": 2
+        },
+        "why_now": "the current 40-120 epoch heads are the only trainable part, so schedule quality is cheap to improve",
+        "expected_effect": "lower variance across iterations; PLCC/F1 less seed-sensitive",
+        "risk": "longer training overfits a 410-row dev split -> keep the subject-disjoint val gate"
+      },
+      {
+        "id": "opt-head-ensemble-flare",
+        "track": "model",
+        "target": "flare (0.000 on the rule head, 0.706 on the multitask head)",
+        "change": "Keep the trained 5-way defect head as the primary head but distil the calibrated rule/measure features into it (feature-level distillation on flare), so the single deployed head does not regress to the rule head's 0 FLARE F1.",
+        "concrete_params": {
+          "method": "feature distillation",
+          "rule_features": "blob/ratio/cast statistics from measure_lib",
+          "head": "concat(adapter_feat, rule_feat) -> 5 logits"
+        },
+        "why_now": "the rule head cannot separate flare at all while the adapter head can",
+        "expected_effect": "flare F1 kept while ROM stays inside the budget",
+        "risk": "feature concatenation adds parameters -> re-check the 60 MB fp16 ROM gate"
+      },
+      {
+        "id": "opt-encoder-resolution",
+        "track": "model trade-off",
+        "target": "ROM vs accuracy head-room",
+        "change": "Evaluate MobileCLIP2-S0 at 256 vs 336 input, and S0 vs the next-smaller/larger encoder variant, and pick the largest encoder that still fits <60 MB fp16 with the heads (11.46 M params at S0 -> ~22.9 MB fp16, so there is head-room).",
+        "concrete_params": {
+          "encoders": [
+            "MobileCLIP2-S0",
+            "MobileCLIP2-S2 (if it fits)"
+          ],
+          "resolutions": [
+            256,
+            336
+          ],
+          "rom_gate_mb": 60.0
+        },
+        "why_now": "score accuracy is the binding gate now, and ROM has head-room",
+        "expected_effect": "higher score correlation without breaking the ROM constraint",
+        "risk": "bigger encoder raises per-sample latency (not measured in this run)"
+      },
+      {
+        "id": "opt-eval-hygiene",
+        "track": "evaluation",
+        "target": "trustworthy numbers",
+        "change": "Re-verify the frozen metric path against iqa_agent.tools.iqa_model.evaluate for the exact checkpoint/preprocessing pair before acting on any PLCC delta; report PLCC/SRCC with bootstrap CIs and fix the seed set (>= 3 seeds, report mean +- std).",
+        "concrete_params": {
+          "seeds": 3,
+          "bootstrap": 1000,
+          "target_ci": 0.95
+        },
+        "why_now": "the run reported PLCC 0.4338 where the reference baseline reports 0.4757 for the same model/split/metric code; that gap is unresolved and must be explained first",
+        "expected_effect": "no decisions taken on noise",
+        "risk": "more seeds cost GPU time"
+      }
+    ],
+    "data_plan": {
+      "support": {
+        "blur": 150,
+        "over_exp": 75,
+        "under_exp": 75,
+        "flare": 9,
+        "white_balance": 0
+      },
+      "n_eval": 610,
+      "targets": [
+        {
+          "defect": "blur",
+          "defect_zh": "模糊",
+          "current_positives": 150,
+          "target_positives": 150,
+          "gap": 0,
+          "measurable": true
+        },
+        {
+          "defect": "over_exp",
+          "defect_zh": "过曝",
+          "current_positives": 75,
+          "target_positives": 75,
+          "gap": 0,
+          "measurable": true
+        },
+        {
+          "defect": "under_exp",
+          "defect_zh": "欠曝",
+          "current_positives": 75,
+          "target_positives": 150,
+          "gap": 75,
+          "measurable": true
+        },
+        {
+          "defect": "flare",
+          "defect_zh": "炫光",
+          "current_positives": 9,
+          "target_positives": 30,
+          "gap": 21,
+          "measurable": true
+        },
+        {
+          "defect": "white_balance",
+          "defect_zh": "白平衡",
+          "current_positives": 0,
+          "target_positives": 30,
+          "gap": 30,
+          "measurable": false
+        }
+      ],
+      "annotation": {
+        "goal": "Turn the local VLM from an unvalidated helper into a review-assisted labeller that raises the positive count for the classes the frozen eval cannot measure (white_balance 0, flare 9), without ever treating a model output as ground truth.",
+        "local_model": {
+          "model_id": "qwen3.8-27b",
+          "path": "local_largemodel/qwen3.8-27b",
+          "serving": "llama.cpp llama-server, OpenAI-compatible",
+          "endpoint": "http://127.0.0.1:8084/v1",
+          "modalities": [
+            "text",
+            "image"
+          ],
+          "role": "candidate-label assistant (pre-annotation, diagnosis, prompt iteration)"
+        },
+        "client": {
+          "module": "algorithm_plugins/iqa/annotation.py",
+          "script": "scripts/iqa_annotate.py",
+          "prompt_version": "iqa-prelabel-v1",
+          "output_schema": "{path, ok, defects{d:{present,severity[,direction]}}, quality_score_0_100, confidence_0_1, model_id, prompt_version, elapsed_s, usage, review_required: true, provenance}",
+          "invariant": "review_required is always true - pre-labels never enter a dataset version unreviewed"
+        },
+        "pilot_evidence": [],
+        "tuning_steps": [
+          "prompt v2 for blur: ask the model for an edge-energy / high-frequency check and a centre-vs-corner crop comparison before deciding blur; v1 blur P/R was 0.25/0.20 on the 20-image pilot.",
+          "add an explicit negative guard for flare and white_balance: require a described light source / cast direction; v1 flagged 4 flare FP and 6 white_balance FP on the same 20 images, so its positive rate is unusable without the guard.",
+          "require the wb direction (cool/warm/green/magenta) and reject any white_balance=present without a direction; wb_direction_acc was not measurable in v1 (0 GT positives).",
+          "run the pilot per class in batches of 20-30, keep the prompt_version in provenance, and only promote a prompt version when its agreement on a 30-image human-reviewed set beats the previous one."
+        ],
+        "review_protocol": {
+          "rare_classes": "flare, white_balance -> 100% human review of every pre-label",
+          "other_classes": ">= 30% stratified human review (stratified by model confidence)",
+          "accept_rule": "a pre-label is accepted only after a human accept/edit; disagreement is logged and drives the next prompt version",
+          "audit": "store model_id + prompt_version + reviewer + accept/edit/reject in the row provenance",
+          "kpi": "human review time per accepted label, and the pre-label accept rate per class"
+        }
+      },
+      "augmentation": {
+        "goal": "Fill the measurable-support gaps for the classes the frozen eval cannot score, then re-freeze.",
+        "rules": [
+          "augment only the train split; the frozen eval is never augmented in the same protocol version",
+          "every augmented sample keeps provenance (source image id + transform + parameters)",
+          "bump dataset_version and re-run the reference baseline after any augmentation release"
+        ],
+        "per_class": {
+          "white_balance": {
+            "target_positives": 30,
+            "directions": [
+              "cool",
+              "warm",
+              "green",
+              "magenta"
+            ],
+            "methods": [
+              "channel-gain (von Kries-style) transforms of clean images at measured colour temperatures, verified by estimating the cast direction back",
+              "real captures collected with grey-card reference for ground-truth direction"
+            ],
+            "note": "cover cool/warm/green/magenta roughly balanced; a class with 0 positives today is the single biggest structural cap on the macro-F1 gate."
+          },
+          "flare": {
+            "target_positives": 30,
+            "methods": [
+              "physically-plausible veiling-glare / ghost overlays whose PSF is estimated from the real flare positives",
+              "vary intensity in the same 0/1/2/3 severity scale as the taxonomy"
+            ],
+            "note": "mix synthetic with real captures; keep a small human-reviewed synthetic holdout to catch an overlay artifact the metric would otherwise reward."
+          },
+          "under_exp": {
+            "target_positives": 150,
+            "methods": [
+              "gamma/curve-based darkening with highlight preservation, severity-matched to the existing labels"
+            ]
+          },
+          "blur": {
+            "target_positives": 150,
+            "methods": [
+              "motion-blur kernels (direction + length) and defocus disks, severity-matched"
+            ]
+          },
+          "over_exp": {
+            "target_positives": 75,
+            "methods": [
+              "clipping curve / specular-region growth, severity-matched"
+            ]
+          }
+        },
+        "acceptance": [
+          "after augmentation, re-run measure_threshold + the best adapter on the re-frozen eval",
+          "only promote the new dataset version if the reference baseline improves or holds on every class that was already measurable"
+        ]
+      },
+      "real_mos": null,
+      "quality_only": false,
+      "weak": []
+    },
+    "data_operations": [
+      {
+        "schema_version": "1.0",
+        "operation_id": "aug_hflip_train_pilot",
+        "kind": "augment",
+        "split": "train",
+        "source_id": "",
+        "hypothesis": "Horizontal flip is label-preserving for the global quality score and for blur/over_exp/under_exp/white_balance at the severities present in this pool, so 120 flipped train copies regularise the frozen-feature heads and raise val PLCC/SRCC and supported-class macro-F1; flare is monitored as a counter-signal because flare/light-source geometry may be direction-sensitive.",
+        "params": {
+          "transform": "hflip",
+          "label_preserving": true,
+          "count": 120,
+          "seed": 7,
+          "note": "augment train only; development_test/final_test untouched; count left below the 240 cap to leave headroom for a class-resampling pilot in iteration 2"
+        }
+      },
+      {
+        "schema_version": "1.0",
+        "operation_id": "annotate_rare_defect_probe",
+        "kind": "annotate",
+        "split": "train",
+        "source_id": "",
+        "hypothesis": "A local VLM with a fixed defect JSON rubric and min_confidence 0.7 can surface at least one white_balance/flare positive in the existing train pool; because only 4 samples are permitted, this cannot make white_balance measurable against MIN_CLASS_SUPPORT=5 - the only valid outcome is an agreement/calibration probe to decide whether a larger targeted weak-label batch is worth requesting later. Labels are weak only and never treated as ground truth.",
+        "params": {
+          "limit": 4,
+          "min_confidence": 0.7,
+          "rubric": "fixed defect JSON: {blur,over_exp,under_exp,flare,white_balance} each {present:0|1, severity:0-3, direction:cool|warm|green|magenta for white_balance}",
+          "seed": 7,
+          "labels_are_weak": true,
+          "usage": "train-only auxiliary supervision; never used as test truth"
+        }
+      }
+    ]
+  }
+}

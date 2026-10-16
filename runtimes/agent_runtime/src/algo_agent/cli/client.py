@@ -36,7 +36,7 @@ class ControlClient:
                  verbose: bool = False):
         self.settings = settings
         self.service_url = (service_url or default_service_url(settings)).rstrip("/")
-        self.force_mode = force_mode  # "service" | "embedded" | None (auto)
+        self.force_mode = force_mode or ("service" if service_url else None)
         self.extras = dict(DEFAULT_PAUSE_EXTRAS if extras is None else extras)
         self.verbose = verbose
         self._ctrl = None
@@ -47,7 +47,7 @@ class ControlClient:
         try:
             import httpx
             r = httpx.get(f"{self.service_url}/health", timeout=1.5)
-            return r.status_code == 200
+            return r.status_code == 200 and r.json().get("root") == str(self.settings.root)
         except Exception:
             return False
 
@@ -134,23 +134,22 @@ class ControlClient:
 
     def budget(self, task_id: str) -> Dict[str, Any]:
         if self.mode == "service":
-            return self._req("GET", f"/tasks/{task_id}/state")  # state carries budget_used
+            return self._req("GET", f"/tasks/{task_id}/budget")
         return self._call(self._controller().budget, task_id)
 
     def jobs(self, task_id: Optional[str] = None) -> List[Dict[str, Any]]:
         if self.mode == "service":
-            st = self._req("GET", "/tasks")
-            return st
+            return self._req("GET", "/jobs", params={"task_id": task_id} if task_id else {})
         return self._call(self._controller().jobs, task_id)
 
     def models(self, task_id: str) -> List[Dict[str, Any]]:
         if self.mode == "service":
-            return []
+            return self._req("GET", f"/tasks/{task_id}/models")
         return [m.model_dump() for m in self._controller().repo.list_models(task_id)]
 
     def evals(self, task_id: str) -> List[Dict[str, Any]]:
         if self.mode == "service":
-            return []
+            return self._req("GET", f"/tasks/{task_id}/evals")
         return [e.model_dump() for e in self._controller().repo.list_evals(task_id)]
 
     # ---- task lifecycle ----------------------------------------------- #
@@ -172,6 +171,32 @@ class ControlClient:
         if run:
             result["boundary"] = self._call(ctrl.run, spec.task_id)
         return result
+
+    def start_background(self, task_id: str, *, raw_text: str = "") -> Dict[str, Any]:
+        if self.mode == "service":
+            return self._req("POST", f"/tasks/{task_id}/commands",
+                             json={"intent": "control", "payload": {"action": "resume"}, "async": True})
+        ctrl = self._controller()
+        self._call(ctrl.run_async, task_id, raw_text=raw_text)
+        return {"task_id": task_id, "started": True}
+
+    def message(self, task_id: str, text: str, conversation_id: str = "") -> Dict[str, Any]:
+        if self.mode == "service":
+            return self._req("POST", f"/tasks/{task_id}/messages",
+                             json={"text": text, "conversation_id": conversation_id}, timeout=300)
+        return self._call(self._controller().message, task_id, text, conversation_id=conversation_id)
+
+    def readiness(self, *, probe_coding: bool = False) -> Dict[str, Any]:
+        if self.mode == "service":
+            return self._req("GET", "/readiness?probe_coding=true" if probe_coding else "/readiness",
+                             timeout=45 if probe_coding else 30)
+        return self._controller().readiness(probe_coding=probe_coding)
+
+    def memory(self, task_id: str) -> Dict[str, Any]:
+        if self.mode == "service":
+            return self._req("GET", f"/tasks/{task_id}/memory")
+        from ..memory import ResearchMemory
+        return ResearchMemory(self.settings, self._controller().repo).summary(task_id)
 
     def run(self, task_id: str, *, raw_text: str = "") -> Dict[str, Any]:
         if self.mode == "service":

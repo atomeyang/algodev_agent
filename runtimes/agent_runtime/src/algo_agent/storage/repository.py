@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -277,6 +278,7 @@ class Repository:
             idempotency_key=row["idempotency_key"] or "", run_id=row["run_id"] or "",
             payload=_loads(row["payload_json"], {}), result=_loads(row["result_json"], {}),
             lease_owner=row["lease_owner"], attempts=row["attempts"] or 0, pid=row["pid"],
+            pid_start=row["pid_start"],
             heartbeat_at=row["heartbeat_at"], created_at=row["created_at"], updated_at=row["updated_at"])
 
     def get_job(self, job_id: str) -> Optional[C.JobRecord]:
@@ -339,18 +341,101 @@ class Repository:
             row = c.execute("SELECT * FROM jobs WHERE job_id=?", (row["job_id"],)).fetchone()
         return self._row_to_job(row)
 
-    def reconcile_jobs(self) -> List[C.JobRecord]:
-        """After a crash, running jobs with a dead lease are re-queued (guide 7)."""
+    def heartbeat_job(self, job: C.JobRecord, *, pid: Optional[int] = None) -> bool:
+        """A stale attempt cannot renew or take ownership of a newer attempt."""
+        with self.conn() as c:
+            fields = "heartbeat_at=?, updated_at=?"
+            values = [C.utcnow(), C.utcnow()]
+            if pid is not None:
+                fields += ", pid=?, pid_start=?"
+                values += [pid, process_identity(pid)]
+            cur = c.execute(
+                f"UPDATE jobs SET {fields} WHERE job_id=? AND lease_owner=? AND attempts=? "
+                "AND status IN ('running','cancel_requested')",
+                [*values, job.job_id, job.lease_owner, job.attempts])
+            c.commit()
+            return cur.rowcount == 1
+
+    def finish_job(self, job: C.JobRecord, status: str, result: Dict[str, Any]) -> bool:
+        with self.conn() as c:
+            cur = c.execute(
+                "UPDATE jobs SET status=CASE WHEN status='cancel_requested' THEN 'cancelled' ELSE ? END, "
+                "result_json=?, updated_at=? WHERE job_id=? AND lease_owner=? AND attempts=? "
+                "AND status IN ('running','cancel_requested')",
+                (status, _dumps(result), C.utcnow(), job.job_id, job.lease_owner, job.attempts))
+            c.commit()
+            return cur.rowcount == 1
+
+    def reconcile_jobs(self, lease_timeout_s: float = 60.0) -> List[C.JobRecord]:
+        """Recover dead/no-PID leases, never start a duplicate of a live process."""
         requeued: List[C.JobRecord] = []
         with self.conn() as c:
-            rows = c.execute("SELECT * FROM jobs WHERE status=?", (JobStatus.RUNNING.value,)).fetchall()
+            c.execute("BEGIN IMMEDIATE")
+            rows = c.execute("SELECT * FROM jobs WHERE status IN ('running','cancel_requested')").fetchall()
             for r in rows:
-                if r["pid"] is not None and not _pid_alive(r["pid"]):
-                    c.execute("UPDATE jobs SET status=?, lease_owner=NULL, pid=NULL, updated_at=? WHERE job_id=?",
-                              (JobStatus.QUEUED.value, C.utcnow(), r["job_id"]))
+                stamp = r["heartbeat_at"] or r["updated_at"]
+                expired = (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).total_seconds() >= lease_timeout_s
+                pid = r["pid"]
+                dead = pid is not None and (
+                    not _pid_alive(pid) or (r["pid_start"] and process_identity(pid) != r["pid_start"]))
+                if dead or (pid is None and expired):
+                    status = "cancelled" if r["status"] == "cancel_requested" else "queued"
+                    c.execute("UPDATE jobs SET status=?, lease_owner=NULL, pid=NULL, pid_start=NULL, "
+                              "updated_at=? WHERE job_id=?",
+                              (status, C.utcnow(), r["job_id"]))
                     requeued.append(self._row_to_job(r))
             c.commit()
         return requeued
+
+    # ---- conversation / resumable research / measured lessons ---------- #
+    def add_message(self, task_id: str, conversation_id: str, role: str, content: str,
+                    metadata: Optional[Dict[str, Any]] = None) -> int:
+        if role not in {"user", "assistant"}:
+            raise ValueError("only user/assistant conversation records are allowed")
+        with self.conn() as c:
+            cur = c.execute(
+                "INSERT INTO messages(task_id,conversation_id,role,content,metadata_json,created_at) "
+                "VALUES(?,?,?,?,?,?)",
+                (task_id, conversation_id or task_id, role, content, _dumps(metadata or {}), C.utcnow()))
+            c.commit()
+            return cur.lastrowid
+
+    def messages(self, task_id: str, conversation_id: str = "", limit: int = 20) -> List[Dict[str, Any]]:
+        with self.conn() as c:
+            rows = c.execute(
+                "SELECT * FROM messages WHERE task_id=? AND conversation_id=? "
+                "ORDER BY message_id DESC LIMIT ?", (task_id, conversation_id or task_id, max(1, min(limit, 100)))).fetchall()
+        return [{"role": r["role"], "content": r["content"], "message_id": r["message_id"],
+                 "metadata": _loads(r["metadata_json"], {}), "created_at": r["created_at"]}
+                for r in reversed(rows)]
+
+    def research_step(self, key: str, input_hash: str) -> Optional[Dict[str, Any]]:
+        with self.conn() as c:
+            row = c.execute("SELECT result_json FROM research_steps WHERE step_key=? AND input_hash=?",
+                            (key, input_hash)).fetchone()
+        return _loads(row["result_json"], {}) if row else None
+
+    def save_research_step(self, key: str, task_id: str, input_hash: str, result: Dict[str, Any]) -> None:
+        with self.conn() as c:
+            c.execute("INSERT OR REPLACE INTO research_steps VALUES(?,?,?,?,?)",
+                      (key, task_id, input_hash, _dumps(result), C.utcnow()))
+            c.commit()
+
+    def save_lesson(self, lesson_id: str, task_id: str, plan_id: str, domain: str,
+                    fingerprint: str, content: Dict[str, Any], *, shared: bool = False) -> None:
+        with self.conn() as c:
+            c.execute("INSERT INTO lessons VALUES(?,?,?,?,?,?,?,?) "
+                      "ON CONFLICT(lesson_id) DO UPDATE SET content_json=excluded.content_json",
+                      (lesson_id, task_id, plan_id, domain, fingerprint, _dumps(content),
+                       int(shared), C.utcnow()))
+            c.commit()
+
+    def lessons(self, task_id: str, domain: str, *, include_shared: bool = True) -> List[Dict[str, Any]]:
+        with self.conn() as c:
+            rows = c.execute(
+                "SELECT * FROM lessons WHERE domain=? AND (task_id=? OR shared=?) ORDER BY created_at DESC",
+                (domain, task_id, 1 if include_shared else -1)).fetchall()
+        return [{**dict(r), "content": _loads(r["content_json"], {})} for r in rows]
 
     # ---- models / evals / experiments / datasets ---------------------- #
     def save_model(self, m: C.ModelManifest) -> None:
@@ -652,6 +737,16 @@ def _pid_alive(pid: int) -> bool:
     except (OSError, ValueError):
         return False
     return True
+
+
+def process_identity(pid: int) -> Optional[str]:
+    """Linux boot + process start ticks, so PID reuse is not a surviving job."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        ticks = stat.rsplit(")", 1)[1].split()[19]
+        return Path("/proc/sys/kernel/random/boot_id").read_text().strip() + ":" + ticks
+    except (OSError, IndexError):
+        return None
 
 
 __all__ = ["Repository", "StateConflict", "new_id"]

@@ -1,0 +1,12 @@
+{
+  "executor": "codex_cli",
+  "model": "gpt-6-astra",
+  "capabilities": {
+    "workspace_write": true,
+    "jsonl": true,
+    "output_schema": true,
+    "real_enabled": true,
+    "requested_model": "gpt-6-astra",
+    "model_source": "user_config_snapshot"
+  }
+}
